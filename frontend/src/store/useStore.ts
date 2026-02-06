@@ -124,6 +124,22 @@ export const useStore = create<AppState>()(
         {
             name: 'remgo-storage',
             partialize: (state) => ({ settings: state.settings }),
+            merge: (persistedState, currentState) => {
+                const persisted = persistedState as { settings?: Partial<TaskSettings> };
+                return {
+                    ...currentState,
+                    settings: {
+                        ...currentState.settings,
+                        ...(persisted?.settings || {}),
+                        // Ensure new fields have defaults even if not in persisted state
+                        loras: persisted?.settings?.loras ?? currentState.settings.loras,
+                        seedRandom: persisted?.settings?.seedRandom ?? currentState.settings.seedRandom,
+                        vaeName: persisted?.settings?.vaeName ?? currentState.settings.vaeName,
+                        outputFormat: persisted?.settings?.outputFormat ?? currentState.settings.outputFormat,
+                        clipSkip: persisted?.settings?.clipSkip ?? currentState.settings.clipSkip,
+                    }
+                };
+            }
         }
     )
 );
