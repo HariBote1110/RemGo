@@ -48,7 +48,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Ensuring critical packages are installed...
-pip install fastapi uvicorn[standard] websockets==11.0.3 python-multipart "numpy<2" pillow requests tqdm opencv-contrib-python-headless scipy psutil supervision safetensors transformers accelerate einops pyyaml
+pip install fastapi uvicorn[standard] websockets==11.0.3 python-multipart "numpy<2" pillow requests tqdm opencv-contrib-python-headless scipy psutil supervision safetensors transformers accelerate einops pyyaml groundingdino-py segment-anything rembg onnxruntime
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
