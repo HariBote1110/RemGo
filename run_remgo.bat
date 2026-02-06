@@ -39,6 +39,14 @@ if %errorlevel% neq 0 (
     echo [WARNING] Failed to install from requirements_versions.txt. Attempting manual install...
 )
 
+echo [INFO] Installing PyTorch (CUDA 12.1)...
+pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to install PyTorch.
+    pause
+    exit /b 1
+)
+
 echo [INFO] Ensuring critical packages are installed...
 pip install fastapi uvicorn[standard] websockets python-multipart numpy pillow requests tqdm opencv-contrib-python-headless scipy
 if %errorlevel% neq 0 (
