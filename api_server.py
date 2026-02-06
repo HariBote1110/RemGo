@@ -46,11 +46,13 @@ class TaskRequest(BaseModel):
     aspect_ratios_selection: str = "1024*1024"
     image_number: int = 1
     image_seed: int = -1
-    sharpness: float = 2.0
+    image_sharpness: float = 2.0
     guidance_scale: float = 4.0
     base_model_name: str = "juggernautXL_v8Rundiffusion.safetensors"
     refiner_model_name: str = "None"
     refiner_switch: float = 0.5
+    sampler_name: str = "dpmpp_2m_sde_gpu"
+    scheduler_name: str = "karras"
     loras: List[List] = [] # [[enabled, name, weight], ...]
 
 class TaskStatus:
@@ -90,7 +92,7 @@ def build_async_task_args(request: TaskRequest):
         "png", # output_format
         request.image_seed if request.image_seed != -1 else int(time.time()),
         False, # read_wildcards_in_order
-        request.sharpness,
+        request.image_sharpness,
         request.guidance_scale,
         request.base_model_name,
         request.refiner_model_name,
@@ -123,8 +125,8 @@ def build_async_task_args(request: TaskRequest):
         0.3, # adm_scaler_end
         config.default_cfg_tsnr, # adaptive_cfg
         1, # clip_skip
-        config.default_sampler, # sampler_name
-        config.default_scheduler, # scheduler_name
+        request.sampler_name,
+        request.scheduler_name,
         config.default_vae, # vae_name
         -1, # overwrite_step
         -1, # overwrite_switch

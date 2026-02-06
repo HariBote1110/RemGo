@@ -9,6 +9,14 @@ export interface TaskSettings {
     aspectRatio: string;
     imageNumber: number;
     seed: number;
+    // Advanced Settings
+    guidanceScale: number;
+    imageSharpness: number;
+    baseModelName: string;
+    refinerModelName: string;
+    refinerSwitch: number;
+    samplerName: string;
+    schedulerName: string;
 }
 
 export interface TaskProgress {
@@ -44,6 +52,13 @@ export const useStore = create<AppState>()(
                 aspectRatio: "1024*1024",
                 imageNumber: 1,
                 seed: -1,
+                guidanceScale: 4.0,
+                imageSharpness: 2.0,
+                baseModelName: 'Default',
+                refinerModelName: 'None',
+                refinerSwitch: 0.5,
+                samplerName: 'dpmpp_2m_sde_gpu',
+                schedulerName: 'karras',
             },
             activeTasks: {},
             availableOptions: {

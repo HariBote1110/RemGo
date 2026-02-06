@@ -57,3 +57,26 @@ INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8888 (Press CTRL+C to quit)
 INFO:     127.0.0.1:59574 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61290 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61602 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:61604 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61605 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61606 - "WebSocket /ws" [accepted]
+INFO:     connection closed
+INFO:     connection open
+INFO:     connection closed
+INFO:     127.0.0.1:62882 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:62884 - "GET /settings HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:62886 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:62884 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62884 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63041 - "GET /settings HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63137 - "GET /settings HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:63211 - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:63213 - "GET /settings HTTP/1.1" 200 OK

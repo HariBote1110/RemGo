@@ -38,6 +38,13 @@ export const useApi = () => {
                     aspect_ratios_selection: currentSettings.aspectRatio,
                     image_number: currentSettings.imageNumber,
                     image_seed: currentSettings.seed,
+                    guidance_scale: currentSettings.guidanceScale,
+                    image_sharpness: currentSettings.imageSharpness,
+                    base_model_name: currentSettings.baseModelName,
+                    refiner_model_name: currentSettings.refinerModelName,
+                    refiner_switch: currentSettings.refinerSwitch,
+                    sampler_name: currentSettings.samplerName,
+                    scheduler_name: currentSettings.schedulerName,
                 }),
             });
             const data = await resp.json();
