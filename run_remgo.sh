@@ -30,7 +30,7 @@ fi
 echo "[INFO] Activating virtual environment and installing dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements_versions.txt
 
 # Setup Frontend
 echo "[INFO] Setting up frontend dependencies..."
@@ -39,6 +39,9 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 cd ..
+
+# Kill existing backend if running
+pkill -f "python3 api_server.py" || true
 
 # Start Backend in background
 echo "[INFO] Starting Backend API Server..."

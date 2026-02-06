@@ -33,7 +33,7 @@ if not exist venv (
 
 echo [INFO] Activating virtual environment and installing dependencies...
 call venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements_versions.txt
 
 :: Setup Frontend
 echo [INFO] Setting up frontend dependencies...
