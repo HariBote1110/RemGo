@@ -1,0 +1,60 @@
+Total VRAM 32768 MB, total RAM 32768 MB
+Set vram state to: SHARED
+Always offload VRAM
+Device: mps
+VAE dtype: torch.float32
+Using sub quadratic optimization for cross attention, if you have memory or speed issues try using: --attention-split
+Refiner unloaded.
+Exception in thread Thread-1 (worker):
+Traceback (most recent call last):
+  File "/Users/yuki/GitHub/RemGo/modules/patch.py", line 465, in loader
+    result = original_loader(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/safetensors/torch.py", line 311, in load_file
+    with safe_open(filename, framework="pt", device=device) as f:
+FileNotFoundError: No such file or directory: "/Users/yuki/GitHub/RemGo/models/checkpoints/juggernautXL_v8Rundiffusion.safetensors"
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.10/3.10.19_3/Frameworks/Python.framework/Versions/3.10/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+    self.run()
+  File "/opt/homebrew/Cellar/python@3.10/3.10.19_3/Frameworks/Python.framework/Versions/3.10/lib/python3.10/threading.py", line 953, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/yuki/GitHub/RemGo/modules/async_worker.py", line 181, in worker
+    import modules.default_pipeline as pipeline
+  File "/Users/yuki/GitHub/RemGo/modules/default_pipeline.py", line 270, in <module>
+    refresh_everything(
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/modules/default_pipeline.py", line 250, in refresh_everything
+    refresh_base_model(base_model_name, vae_name)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/modules/default_pipeline.py", line 74, in refresh_base_model
+    model_base = core.load_model(filename, vae_filename)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/Users/yuki/GitHub/RemGo/modules/core.py", line 147, in load_model
+    unet, clip, vae, vae_filename, clip_vision = load_checkpoint_guess_config(ckpt_filename, embedding_directory=path_embeddings,Skipping model cache initialization for quick API testing.
+
+  File "/Users/yuki/GitHub/RemGo/ldm_patched/modules/sd.py", line 431, in load_checkpoint_guess_config
+Starting RemGo API Server on http://0.0.0.0:8888
+    sd = ldm_patched.modules.utils.load_torch_file(ckpt_path)
+  File "/Users/yuki/GitHub/RemGo/ldm_patched/modules/utils.py", line 13, in load_torch_file
+    sd = safetensors.torch.load_file(ckpt, device=device.type)
+  File "/Users/yuki/GitHub/RemGo/modules/patch.py", line 481, in loader
+    raise ValueError(exp)
+ValueError: No such file or directory: "/Users/yuki/GitHub/RemGo/models/checkpoints/juggernautXL_v8Rundiffusion.safetensors"
+
+INFO:     Started server process [41717]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8INFO:     127.0.0.1:58300 - "GET /settings HTTP/1.1" 200 OK
+on shutdown.
+INFO:     Application shutdown complete.
