@@ -160,6 +160,9 @@ def build_async_task_args(request: TaskRequest):
         False, # inpaint_advanced_masking_checkbox
         False, # invert_mask_checkbox
         0, # inpaint_erode_or_dilate
+        config.default_save_only_final_enhanced_image, # save_final_enhanced_image_only
+        config.default_save_metadata_to_images, # save_metadata_to_images
+        flags.MetadataScheme(config.default_metadata_scheme), # metadata_scheme
     ])
     
     # ControlNet tasks
@@ -272,7 +275,13 @@ if __name__ == "__main__":
             config.embeddings_downloads, config.lora_downloads, config.vae_downloads)
 
         config.update_files()
-        print(f"Checkpoints path: {config.paths_checkpoints}")
+        print(f"Current Working Directory: {os.getcwd()}")
+        print(f"Checkpoints paths: {config.paths_checkpoints}")
+        for p in config.paths_checkpoints:
+            if os.path.exists(p):
+                print(f"Contents of {p}: {os.listdir(p)}")
+            else:
+                print(f"Path does not exist: {p}")
         print(f"Models found: {config.model_filenames}")
         
         init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
