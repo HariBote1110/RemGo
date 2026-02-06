@@ -34,6 +34,17 @@ if not exist venv (
 echo [INFO] Activating virtual environment and installing dependencies...
 call venv\Scripts\activate
 pip install -r requirements_versions.txt
+if %errorlevel% neq 0 (
+    echo [WARNING] Failed to install from requirements_versions.txt. Attempting manual install...
+)
+
+echo [INFO] Ensuring critical packages are installed...
+pip install fastapi uvicorn[standard] websockets python-multipart
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to install dependencies.
+    pause
+    exit /b 1
+)
 
 :: Setup Frontend
 echo [INFO] Setting up frontend dependencies...
