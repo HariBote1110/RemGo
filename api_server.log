@@ -41,10 +41,8 @@ Traceback (most recent call last):
   File "/Users/yuki/GitHub/RemGo/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
     return func(*args, **kwargs)
   File "/Users/yuki/GitHub/RemGo/modules/core.py", line 147, in load_model
-    unet, clip, vae, vae_filename, clip_vision = load_checkpoint_guess_config(ckpt_filename, embedding_directory=path_embeddings,Skipping model cache initialization for quick API testing.
-
+    unet, clip, vae, vae_filename, clip_vision = load_checkpoint_guess_config(ckpt_filename, embedding_directory=path_embeddings,
   File "/Users/yuki/GitHub/RemGo/ldm_patched/modules/sd.py", line 431, in load_checkpoint_guess_config
-Starting RemGo API Server on http://0.0.0.0:8888
     sd = ldm_patched.modules.utils.load_torch_file(ckpt_path)
   File "/Users/yuki/GitHub/RemGo/ldm_patched/modules/utils.py", line 13, in load_torch_file
     sd = safetensors.torch.load_file(ckpt, device=device.type)
@@ -52,9 +50,10 @@ Starting RemGo API Server on http://0.0.0.0:8888
     raise ValueError(exp)
 ValueError: No such file or directory: "/Users/yuki/GitHub/RemGo/models/checkpoints/juggernautXL_v8Rundiffusion.safetensors"
 
-INFO:     Started server process [41717]
+Skipping model cache initialization for quick API testing.
+Starting RemGo API Server on http://0.0.0.0:8888
+INFO:     Started server process [44824]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8INFO:     127.0.0.1:58300 - "GET /settings HTTP/1.1" 200 OK
-on shutdown.
-INFO:     Application shutdown complete.
+INFO:     Uvicorn running on http://0.0.0.0:8888 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59574 - "GET /settings HTTP/1.1" 200 OK

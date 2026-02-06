@@ -5,6 +5,8 @@ import time
 import asyncio
 from typing import List, Optional
 from fastapi import FastAPI, WebSocket, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 
@@ -21,6 +23,19 @@ import modules.flags as flags
 import ldm_patched.modules.model_management as model_management
 
 app = FastAPI(title=f"RemGo API v{fooocus_version.version}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount outputs folder for image serving
+if not os.path.exists('outputs'):
+    os.makedirs('outputs')
+app.mount("/images", StaticFiles(directory="outputs"), name="images")
 
 # Task state management
 class TaskRequest(BaseModel):
