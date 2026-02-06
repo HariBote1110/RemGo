@@ -25,6 +25,7 @@ export interface TaskProgress {
     status: string;
     finished: boolean;
     results: string[];
+    preview?: string; // Base64 encoded preview image
 }
 
 interface AppState {

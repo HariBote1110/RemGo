@@ -218,6 +218,44 @@ async def generate_image(request: TaskRequest):
     
     return {"task_id": task_id, "status": "Started"}
 
+@app.post("/stop")
+async def stop_generation():
+    # Stop pending tasks
+    while len(worker.async_tasks) > 0:
+        worker.async_tasks.pop(0)
+
+    # Stop current task
+    # We need a way to signal the worker thread to stop.
+    # Currently async_worker.py checks 'last_stop' in some places but mostly relies on exception handling.
+    # A robust implementation would require ldm_patched.modules.model_management.interrupt_current_processing()
+    try:
+        model_management.interrupt_current_processing()
+        return {"status": "Stopping"}
+    except Exception as e:
+        return {"status": "Error stopping", "detail": str(e)}
+
+@app.get("/history")
+async def get_history():
+    history = []
+    outputs_dir = os.path.join(root, 'outputs')
+    if os.path.exists(outputs_dir):
+        # Walk through date directories
+        for date_dir in os.listdir(outputs_dir):
+            date_path = os.path.join(outputs_dir, date_dir)
+            if os.path.isdir(date_path):
+                for filename in os.listdir(date_path):
+                    if filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                        filepath = os.path.join(date_dir, filename)
+                        full_path = os.path.join(date_path, filename)
+                        history.append({
+                            "filename": filename,
+                            "path": filepath.replace('\\', '/'), # Relative path for serving
+                            "created": os.path.getctime(full_path)
+                        })
+    # Sort by creation time descending
+    history.sort(key=lambda x: x['created'], reverse=True)
+    return history
+
 def process_path(p):
     if isinstance(p, str):
         # Normalize path separators
@@ -240,7 +278,16 @@ async def monitor_task(task):
                 percentage, title, image = product
                 status.percentage = percentage
                 status.status_text = title
-                # status.preview_image = image # Optimization: maybe not send raw image via WS by default
+                if isinstance(image, str): # Base64 string ? No, it's likely a PIL image or numpy array passed here?
+                    # In async_worker.py: yield_result calls log() which returns path, OR for preview it might return something else.
+                    # Actually async_worker.py preview yield is: ['preview', (current_progress, '...', y)]
+                    # where y is None or prompt text or something.
+                    # Wait, let's check async_worker.py Callback.
+                    # "async_task.yields.append(['preview', (int(current_progress...), 'Sampling step...', y)])"
+                    # 'y' comes from callback(step, x0, x, total_steps, y). 
+                    # We might need to encode it to base64 if it is a tensor/array.
+                    pass
+                status.preview_image = image 
             elif flag == 'results':
                 status.results = [process_path(p) for p in product]
             elif flag == 'finish':
@@ -253,14 +300,43 @@ async def monitor_task(task):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    import base64
+    import io
+    from PIL import Image
+    import numpy as np
+
     try:
         while True:
-            updates = {tid: {
-                "progress": t.percentage, 
-                "status": t.status_text,
-                "finished": t.finished,
-                "results": t.results if t.finished else []
-            } for tid, t in active_tasks.items()}
+            updates = {}
+            for tid, t in active_tasks.items():
+                preview_b64 = None
+                if t.preview_image is not None:
+                    try:
+                        # Handle different image types
+                        img_data = t.preview_image
+                        
+                        # Convert numpy array to PIL Image
+                        if isinstance(img_data, np.ndarray):
+                             # Normalize if float
+                            if img_data.dtype == np.float32 or img_data.dtype == np.float64:
+                                img_data = (img_data * 255).astype(np.uint8)
+                            img_data = Image.fromarray(img_data)
+
+                        if isinstance(img_data, Image.Image):
+                            buffered = io.BytesIO()
+                            img_data.save(buffered, format="JPEG", quality=50) # Low quality for preview
+                            preview_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                    except Exception as e:
+                        print(f"Preview encoding error: {e}")
+                
+                updates[tid] = {
+                    "progress": t.percentage, 
+                    "status": t.status_text,
+                    "finished": t.finished,
+                    "results": t.results if t.finished else [],
+                    "preview": preview_b64
+                }
+            
             await websocket.send_json(updates)
             await asyncio.sleep(0.5)
     except Exception:

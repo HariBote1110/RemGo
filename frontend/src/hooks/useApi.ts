@@ -102,6 +102,24 @@ export const useApi = () => {
         }
     }, [settings]);
 
+    const stopGeneration = useCallback(async () => {
+        try {
+            await fetch(`${API_BASE}/stop`, { method: 'POST' });
+        } catch (err) {
+            console.error('Failed to stop generation:', err);
+        }
+    }, []);
+
+    const fetchHistory = useCallback(async () => {
+        try {
+            const resp = await fetch(`${API_BASE}/history`);
+            return await resp.json();
+        } catch (err) {
+            console.error('Failed to fetch history:', err);
+            return [];
+        }
+    }, []);
+
     useEffect(() => {
         const ws = new WebSocket(`${WS_BASE}/ws`);
 
@@ -114,6 +132,7 @@ export const useApi = () => {
                         status: progress.status,
                         finished: progress.finished,
                         results: progress.results,
+                        preview: progress.preview,
                     });
                 });
             } catch (err) {
@@ -127,5 +146,5 @@ export const useApi = () => {
         return () => ws.close();
     }, [updateTask]);
 
-    return { fetchSettings, generate, loadPreset };
+    return { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory };
 };
