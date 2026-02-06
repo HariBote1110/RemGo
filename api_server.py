@@ -213,7 +213,7 @@ def process_path(p):
         if 'outputs/' in p:
             # Extract relative path from outputs
             rel_path = p.split('outputs/')[-1]
-            return f"/images/{rel_path}"
+            return rel_path
     return p
 
 async def monitor_task(task):
