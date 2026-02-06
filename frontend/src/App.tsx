@@ -12,7 +12,9 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
   const [historyImages, setHistoryImages] = useState<any[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ url: string; path: string } | null>(null);
+  const [imageMetadata, setImageMetadata] = useState<any>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -565,7 +567,19 @@ function App() {
                     <div
                       key={img.path}
                       className="group relative aspect-square bg-white/5 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-premium-accent transition-all"
-                      onClick={() => setSelectedImage(`${API_BASE}/images/${img.path}`)}
+                      onClick={async () => {
+                        setSelectedImage({ url: `${API_BASE}/images/${img.path}`, path: img.path });
+                        setImageMetadata(null);
+                        setLoadingMetadata(true);
+                        try {
+                          const resp = await fetch(`${API_BASE}/history/metadata/${img.path}`);
+                          const data = await resp.json();
+                          setImageMetadata(data.metadata);
+                        } catch (err) {
+                          console.error('Failed to load metadata:', err);
+                        }
+                        setLoadingMetadata(false);
+                      }}
                     >
                       <img
                         src={`${API_BASE}/images/${img.path}`}
@@ -590,18 +604,108 @@ function App() {
         )}
       </main>
 
-      {/* Lightbox for History */}
+      {/* Lightbox for History with Metadata */}
       {
         selectedImage && (
           <div
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-200"
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
             onClick={() => setSelectedImage(null)}
           >
-            <img
-              src={selectedImage}
-              className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
-              alt="Full preview"
-            />
+            <div className="flex gap-6 max-h-full max-w-7xl w-full" onClick={(e) => e.stopPropagation()}>
+              {/* Image */}
+              <div className="flex-1 flex items-center justify-center min-w-0">
+                <img
+                  src={selectedImage.url}
+                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+                  alt="Full preview"
+                />
+              </div>
+              {/* Metadata Panel */}
+              <div className="w-80 bg-black/60 rounded-xl p-4 overflow-y-auto max-h-[85vh] flex-shrink-0">
+                <h4 className="text-sm font-medium text-white/80 mb-4">Metadata</h4>
+                {loadingMetadata ? (
+                  <p className="text-xs text-white/40">Loading...</p>
+                ) : imageMetadata ? (
+                  <div className="space-y-3 text-xs">
+                    {imageMetadata.prompt && (
+                      <div>
+                        <span className="text-white/40 block">Prompt</span>
+                        <span className="text-white/80">{imageMetadata.prompt}</span>
+                      </div>
+                    )}
+                    {imageMetadata.negative_prompt && (
+                      <div>
+                        <span className="text-white/40 block">Negative Prompt</span>
+                        <span className="text-white/80">{imageMetadata.negative_prompt}</span>
+                      </div>
+                    )}
+                    {imageMetadata.styles && (
+                      <div>
+                        <span className="text-white/40 block">Styles</span>
+                        <span className="text-white/80">{typeof imageMetadata.styles === 'string' ? imageMetadata.styles : JSON.stringify(imageMetadata.styles)}</span>
+                      </div>
+                    )}
+                    {imageMetadata.base_model && (
+                      <div>
+                        <span className="text-white/40 block">Model</span>
+                        <span className="text-white/80">{imageMetadata.base_model}</span>
+                      </div>
+                    )}
+                    {imageMetadata.seed && (
+                      <div>
+                        <span className="text-white/40 block">Seed</span>
+                        <span className="text-white/80 font-mono">{imageMetadata.seed}</span>
+                      </div>
+                    )}
+                    {imageMetadata.resolution && (
+                      <div>
+                        <span className="text-white/40 block">Resolution</span>
+                        <span className="text-white/80">{imageMetadata.resolution}</span>
+                      </div>
+                    )}
+                    {imageMetadata.sampler && (
+                      <div>
+                        <span className="text-white/40 block">Sampler</span>
+                        <span className="text-white/80">{imageMetadata.sampler}</span>
+                      </div>
+                    )}
+                    {imageMetadata.scheduler && (
+                      <div>
+                        <span className="text-white/40 block">Scheduler</span>
+                        <span className="text-white/80">{imageMetadata.scheduler}</span>
+                      </div>
+                    )}
+                    {imageMetadata.guidance_scale && (
+                      <div>
+                        <span className="text-white/40 block">Guidance Scale</span>
+                        <span className="text-white/80">{imageMetadata.guidance_scale}</span>
+                      </div>
+                    )}
+                    {imageMetadata.performance && (
+                      <div>
+                        <span className="text-white/40 block">Performance</span>
+                        <span className="text-white/80">{imageMetadata.performance}</span>
+                      </div>
+                    )}
+                    <hr className="border-white/10" />
+                    <details className="cursor-pointer">
+                      <summary className="text-white/40 text-xs">All Metadata (JSON)</summary>
+                      <pre className="mt-2 text-[10px] text-white/60 bg-black/30 p-2 rounded overflow-x-auto">
+                        {JSON.stringify(imageMetadata, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/40">No metadata found</p>
+                )}
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="mt-4 w-full py-2 text-xs bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )
       }

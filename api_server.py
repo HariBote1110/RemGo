@@ -266,6 +266,47 @@ async def get_history():
     history.sort(key=lambda x: x['created'], reverse=True)
     return history
 
+@app.get("/history/metadata/{date_dir}/{filename}")
+async def get_image_metadata(date_dir: str, filename: str):
+    """Get metadata embedded in an image file."""
+    from PIL import Image
+    from modules.meta_parser import read_info_from_image, get_metadata_parser
+    
+    outputs_dir = os.path.join(root, 'outputs')
+    image_path = os.path.join(outputs_dir, date_dir, filename)
+    
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    try:
+        with Image.open(image_path) as img:
+            parameters, metadata_scheme = read_info_from_image(img)
+            
+            if parameters is None:
+                return {"metadata": None, "scheme": None}
+            
+            # Parse metadata based on scheme
+            result = {}
+            if metadata_scheme:
+                try:
+                    parser = get_metadata_parser(metadata_scheme)
+                    if isinstance(parameters, str):
+                        result = parser.to_json(parameters)
+                    elif isinstance(parameters, dict):
+                        result = parameters
+                except Exception as e:
+                    # If parsing fails, return raw parameters
+                    result = parameters if isinstance(parameters, dict) else {"raw": parameters}
+            else:
+                result = parameters if isinstance(parameters, dict) else {"raw": parameters}
+            
+            return {
+                "metadata": result,
+                "scheme": metadata_scheme.value if metadata_scheme else None
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {str(e)}")
+
 def process_path(p):
     if isinstance(p, str):
         # Normalize path separators
