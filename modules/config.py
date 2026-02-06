@@ -188,19 +188,19 @@ def get_dir_or_set_default(key, default_value, as_array=False, make_directory=Fa
     return dp
 
 
-paths_checkpoints = get_dir_or_set_default('path_checkpoints', ['../models/checkpoints/'], True)
-paths_loras = get_dir_or_set_default('path_loras', ['../models/loras/'], True)
-path_embeddings = get_dir_or_set_default('path_embeddings', '../models/embeddings/')
-path_vae_approx = get_dir_or_set_default('path_vae_approx', '../models/vae_approx/')
-path_vae = get_dir_or_set_default('path_vae', '../models/vae/')
-path_upscale_models = get_dir_or_set_default('path_upscale_models', '../models/upscale_models/')
-path_inpaint = get_dir_or_set_default('path_inpaint', '../models/inpaint/')
-path_controlnet = get_dir_or_set_default('path_controlnet', '../models/controlnet/')
-path_clip_vision = get_dir_or_set_default('path_clip_vision', '../models/clip_vision/')
-path_fooocus_expansion = get_dir_or_set_default('path_fooocus_expansion', '../models/prompt_expansion/fooocus_expansion')
-path_wildcards = get_dir_or_set_default('path_wildcards', '../wildcards/')
-path_safety_checker = get_dir_or_set_default('path_safety_checker', '../models/safety_checker/')
-path_sam = get_dir_or_set_default('path_sam', '../models/sam/')
+paths_checkpoints = get_dir_or_set_default('path_checkpoints', ['./models/checkpoints/'], True)
+paths_loras = get_dir_or_set_default('path_loras', ['./models/loras/'], True)
+path_embeddings = get_dir_or_set_default('path_embeddings', './models/embeddings/')
+path_vae_approx = get_dir_or_set_default('path_vae_approx', './models/vae_approx/')
+path_vae = get_dir_or_set_default('path_vae', './models/vae/')
+path_upscale_models = get_dir_or_set_default('path_upscale_models', './models/upscale_models/')
+path_inpaint = get_dir_or_set_default('path_inpaint', './models/inpaint/')
+path_controlnet = get_dir_or_set_default('path_controlnet', './models/controlnet/')
+path_clip_vision = get_dir_or_set_default('path_clip_vision', './models/clip_vision/')
+path_fooocus_expansion = get_dir_or_set_default('path_fooocus_expansion', './models/prompt_expansion/fooocus_expansion')
+path_wildcards = get_dir_or_set_default('path_wildcards', './wildcards/')
+path_safety_checker = get_dir_or_set_default('path_safety_checker', './models/safety_checker/')
+path_sam = get_dir_or_set_default('path_sam', './models/sam/')
 path_outputs = get_path_output()
 
 

@@ -76,7 +76,7 @@ async def get_settings():
     return {
         "models": config.model_filenames,
         "loras": config.lora_filenames,
-        "aspect_ratios": config.available_aspect_ratios, # Use raw values
+        "aspect_ratios": [r.replace('*', '×') for r in config.available_aspect_ratios],
         "performance_options": [p.value for p in flags.Performance] if hasattr(flags.Performance, '__iter__') else flags.Performance.values(),
         "styles": legal_style_names
     }
