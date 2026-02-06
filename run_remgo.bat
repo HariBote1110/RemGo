@@ -48,7 +48,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Ensuring critical packages are installed...
-pip install fastapi==0.111.0 uvicorn[standard]==0.30.1 websockets==12.0 python-multipart "numpy<2" pillow==10.4.0 requests tqdm==4.66.4 opencv-contrib-python-headless==4.10.0.84 scipy==1.14.0 psutil==6.0.0 supervision safetensors==0.4.3 transformers==4.42.4 accelerate==0.32.1 einops==0.8.0 pyyaml==6.0.1 groundingdino-py==0.4.0 segment-anything==1.0 rembg==2.0.57 onnxruntime==1.18.1 torchsde==0.2.6 pytorch_lightning==2.3.3 omegaconf==2.3.0 timm==1.0.7 tokenizers==0.19.1 packaging==24.1
+pip install fastapi==0.111.0 uvicorn[standard]==0.30.1 websockets==11.0.3 python-multipart "numpy<2" pillow==10.4.0 requests tqdm==4.66.4 opencv-contrib-python-headless==4.10.0.84 scipy==1.14.0 psutil==6.0.0 supervision safetensors==0.4.3 transformers==4.42.4 accelerate==0.32.1 einops==0.8.0 pyyaml==6.0.1 groundingdino-py==0.4.0 segment-anything==1.0 rembg==2.0.57 onnxruntime==1.18.1 torchsde==0.2.6 pytorch_lightning==2.3.3 omegaconf==2.3.0 timm==1.0.7 tokenizers==0.19.1 packaging==24.1 gradio==3.41.2 pygit2==1.15.1 httpx==0.27.0
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
