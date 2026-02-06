@@ -78,8 +78,21 @@ async def get_settings():
         "loras": config.lora_filenames,
         "aspect_ratios": [r.replace('*', '×') for r in config.available_aspect_ratios],
         "performance_options": [p.value for p in flags.Performance] if hasattr(flags.Performance, '__iter__') else flags.Performance.values(),
-        "styles": legal_style_names
+        "styles": legal_style_names,
+        "presets": config.available_presets
     }
+
+@app.get("/presets")
+async def get_presets():
+    return {"presets": config.available_presets}
+
+@app.get("/presets/{name}")
+async def get_preset_details(name: str):
+    try:
+        content = config.try_get_preset_content(name)
+        return content
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Preset not found")
 
 def build_async_task_args(request: TaskRequest):
     # This must match AsyncTask.__init__ in modules/async_worker.py

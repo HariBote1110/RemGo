@@ -8,7 +8,7 @@ const API_BASE = `http://${API_HOSTNAME}:8888`;
 
 function App() {
   const { settings, setSettings, activeTasks, availableOptions } = useStore();
-  const { fetchSettings, generate } = useApi();
+  const { fetchSettings, generate, loadPreset } = useApi();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -18,6 +18,11 @@ function App() {
   const handleGenerate = async () => {
     if (!settings.prompt.trim()) return;
     await generate();
+  };
+
+  const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newPreset = e.target.value;
+    loadPreset(newPreset);
   };
 
   return (
@@ -45,6 +50,25 @@ function App() {
         {/* Left Side: Controls */}
         <section className="lg:col-span-5 space-y-6">
           <div className="glass-card p-6 space-y-6">
+
+            {/* Preset Selection */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-white/40">Preset</label>
+              <select
+                value={settings.preset}
+                onChange={handlePresetChange}
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm outline-none"
+              >
+                {/* Ensure current preset is shown even if not in list yet */}
+                {!availableOptions.presets.includes(settings.preset) && settings.preset && (
+                  <option value={settings.preset}>{settings.preset}</option>
+                )}
+                {availableOptions.presets.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-4">
               <label className="text-sm font-medium text-white/60 flex items-center gap-2">
                 Prompt

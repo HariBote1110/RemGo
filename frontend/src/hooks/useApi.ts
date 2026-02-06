@@ -7,7 +7,7 @@ const API_BASE = `http://${API_HOSTNAME}:8888`;
 const WS_BASE = `ws://${API_HOSTNAME}:8888`;
 
 export const useApi = () => {
-    const { setOptions, updateTask, settings } = useStore();
+    const { setSettings, setOptions, updateTask, settings } = useStore();
 
     const fetchSettings = useCallback(async () => {
         try {
@@ -20,11 +20,56 @@ export const useApi = () => {
                 aspectRatios: data.aspect_ratios,
                 performanceOptions: data.performance_options,
                 styles: data.styles,
+                presets: data.presets,
             });
         } catch (err) {
             console.error('Failed to fetch settings:', err);
         }
     }, [setOptions]);
+
+    const loadPreset = useCallback(async (presetName: string) => {
+        try {
+            const resp = await fetch(`${API_BASE}/presets/${presetName}`);
+            const data = await resp.json();
+            // Map preset data to settings
+            // Note: This mapping needs to align with how data is returned from API
+            // and how setSettings expects it.
+            // Based on meta_parser.py logic, we need to map keys.
+            // For now, let's implement a basic mapping based on known keys.
+
+            // NOTE: The API returns keys like "default_prompt", "default_styles" etc.
+            // We need to map them to our TaskSettings keys.
+
+            const newSettings: Partial<TaskSettings> = {};
+            if (data.default_prompt !== undefined) newSettings.prompt = data.default_prompt;
+            if (data.default_prompt_negative !== undefined) newSettings.negativePrompt = data.default_prompt_negative;
+            if (data.default_styles !== undefined) newSettings.styleSelections = data.default_styles;
+            if (data.default_performance !== undefined) newSettings.performanceSelection = data.default_performance;
+            if (data.default_aspect_ratio !== undefined) newSettings.aspectRatio = data.default_aspect_ratio;
+            if (data.default_image_number !== undefined) newSettings.imageNumber = data.default_image_number;
+            // newSettings.seed // seed usually isn't in preset default, or is -1
+
+            // Advanced
+            if (data.default_cfg_scale !== undefined) newSettings.guidanceScale = data.default_cfg_scale;
+            if (data.default_sample_sharpness !== undefined) newSettings.imageSharpness = data.default_sample_sharpness;
+            if (data.default_model !== undefined) newSettings.baseModelName = data.default_model;
+            if (data.default_refiner !== undefined) newSettings.refinerModelName = data.default_refiner;
+            if (data.default_refiner_switch !== undefined) newSettings.refinerSwitch = data.default_refiner_switch;
+            if (data.default_sampler !== undefined) newSettings.samplerName = data.default_sampler;
+            if (data.default_scheduler !== undefined) newSettings.schedulerName = data.default_scheduler;
+
+            newSettings.preset = presetName;
+
+            setSettings({ ...settings, ...newSettings }); // Update settings in store
+            // Wait, setOptions is for availableOptions. We need setSettings.
+            // The useApi hook destructured setOptions but not setSettings?
+            // Checking line 10: const { setOptions, updateTask, settings } = useStore();
+            // I need to add setSettings to destructuring.
+
+        } catch (err) {
+            console.error('Failed to load preset:', err);
+        }
+    }, [settings]);
 
     const generate = useCallback(async (overrideSettings?: Partial<TaskSettings>) => {
         const currentSettings = overrideSettings ? { ...settings, ...overrideSettings } : settings;
@@ -82,5 +127,5 @@ export const useApi = () => {
         return () => ws.close();
     }, [updateTask]);
 
-    return { fetchSettings, generate };
+    return { fetchSettings, generate, loadPreset };
 };

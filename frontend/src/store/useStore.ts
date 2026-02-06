@@ -9,6 +9,7 @@ export interface TaskSettings {
     aspectRatio: string;
     imageNumber: number;
     seed: number;
+    preset: string; // Added preset field
     // Advanced Settings
     guidanceScale: number;
     imageSharpness: number;
@@ -35,6 +36,7 @@ interface AppState {
         aspectRatios: string[];
         performanceOptions: string[];
         styles: string[];
+        presets: string[]; // Added presets list
     };
     setSettings: (settings: Partial<TaskSettings>) => void;
     updateTask: (taskId: string, progress: Partial<TaskProgress>) => void;
@@ -47,11 +49,12 @@ export const useStore = create<AppState>()(
             settings: {
                 prompt: '',
                 negativePrompt: '',
-                styleSelections: ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],
+                styleSelections: [], // Default to empty
                 performanceSelection: "Speed",
-                aspectRatio: "1024×1024",
+                aspectRatio: "1152×896", // Adjusted default
                 imageNumber: 1,
                 seed: -1,
+                preset: 'default', // Default preset
                 guidanceScale: 4.0,
                 imageSharpness: 2.0,
                 baseModelName: 'Default',
@@ -67,6 +70,7 @@ export const useStore = create<AppState>()(
                 aspectRatios: ["1024×1024", "1152×896", "896×1152", "1216×832", "832×1216", "1344×768", "768×1344"],
                 performanceOptions: ["Speed", "Quality", "Extreme Speed", "Lightning", "Hyper-SD"],
                 styles: [],
+                presets: [],
             },
             setSettings: (newSettings) =>
                 set((state) => ({ settings: { ...state.settings, ...newSettings } })),
