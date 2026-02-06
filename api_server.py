@@ -76,7 +76,7 @@ async def get_settings():
     return {
         "models": config.model_filenames,
         "loras": config.lora_filenames,
-        "aspect_ratios": list(config.available_aspect_ratios_labels),
+        "aspect_ratios": config.available_aspect_ratios, # Use raw values
         "performance_options": [p.value for p in flags.Performance] if hasattr(flags.Performance, '__iter__') else flags.Performance.values(),
         "styles": legal_style_names
     }
@@ -265,13 +265,16 @@ if __name__ == "__main__":
 
         # Initialize and download models if necessary
         from modules.hash_cache import init_cache
-        from launch import download_models
+        from modules.model_downloader import download_models
         
         config.default_base_model_name, config.checkpoint_downloads = download_models(
             config.default_base_model_name, config.previous_default_models, config.checkpoint_downloads,
             config.embeddings_downloads, config.lora_downloads, config.vae_downloads)
 
         config.update_files()
+        print(f"Checkpoints path: {config.paths_checkpoints}")
+        print(f"Models found: {config.model_filenames}")
+        
         init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
         
         from modules.sdxl_styles import legal_style_names
