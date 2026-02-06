@@ -246,10 +246,22 @@ if __name__ == "__main__":
         # Initialize Fooocus environment
         import args_manager
         args = args_manager.args
+        config.update_files()
+        
+        # Device information for debugging
+        try:
+            import torch
+            if torch.backends.mps.is_available():
+                print("Target Device: macOS MPS (Metal Performance Shaders) detected.")
+            elif torch.cuda.is_available():
+                print(f"Target Device: CUDA ({torch.cuda.get_device_name(0)}) detected.")
+            else:
+                print("Target Device: CPU")
+        except Exception:
+            pass
+
         if args.gpu_device_id is not None:
             os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_device_id)
-
-        config.update_files()
         # Skip initialization of models to avoid "File Not Found" errors during development
         # init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
         print("Skipping model cache initialization for quick API testing.")
