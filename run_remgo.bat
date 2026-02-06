@@ -48,7 +48,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Ensuring critical packages are installed...
-pip install fastapi uvicorn[standard] websockets==11.0.3 python-multipart numpy pillow requests tqdm opencv-contrib-python-headless scipy
+pip install fastapi uvicorn[standard] websockets==11.0.3 python-multipart "numpy<2" pillow requests tqdm opencv-contrib-python-headless scipy psutil supervision
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
