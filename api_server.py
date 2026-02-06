@@ -200,9 +200,21 @@ async def generate_image(request: TaskRequest):
     
     worker.async_tasks.append(task)
     
+    
     asyncio.create_task(monitor_task(task))
     
     return {"task_id": task_id, "status": "Started"}
+
+def process_path(p):
+    if isinstance(p, str):
+        # Normalize path separators
+        p = p.replace('\\', '/')
+        # Check if it is in outputs folder
+        if 'outputs/' in p:
+            # Extract relative path from outputs
+            rel_path = p.split('outputs/')[-1]
+            return f"/images/{rel_path}"
+    return p
 
 async def monitor_task(task):
     task_id = task.task_id
@@ -217,9 +229,9 @@ async def monitor_task(task):
                 status.status_text = title
                 # status.preview_image = image # Optimization: maybe not send raw image via WS by default
             elif flag == 'results':
-                status.results = product
+                status.results = [process_path(p) for p in product]
             elif flag == 'finish':
-                status.results = product
+                status.results = [process_path(p) for p in product]
                 status.finished = True
                 status.percentage = 100
                 status.status_text = "Finished"
