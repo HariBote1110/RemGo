@@ -122,6 +122,36 @@ function App() {
                   />
                 </div>
 
+                {/* Styles Selection */}
+                {availableOptions.styles.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-white/40">Styles</label>
+                      <span className="text-xs text-white/30">{settings.styleSelections.length} selected</span>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-black/20 rounded-lg p-2 space-y-1">
+                      {availableOptions.styles.slice(0, 50).map(style => (
+                        <label key={style} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-white/5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settings.styleSelections.includes(style)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSettings({ styleSelections: [...settings.styleSelections, style] });
+                              } else {
+                                setSettings({ styleSelections: settings.styleSelections.filter(s => s !== style) });
+                              }
+                            }}
+                            className="accent-premium-accent"
+                            disabled={isProcessing}
+                          />
+                          <span className="text-xs text-white/70">{style}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-white/40">Performance</label>
@@ -185,6 +215,33 @@ function App() {
 
                   {showAdvanced && (
                     <div className="space-y-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {/* Seed Settings */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-white/50">Seed</label>
+                          <label className="flex items-center gap-2 text-xs text-white/50">
+                            <input
+                              type="checkbox"
+                              checked={settings.seedRandom}
+                              onChange={(e) => setSettings({ seedRandom: e.target.checked })}
+                              className="accent-premium-accent"
+                              disabled={isProcessing}
+                            />
+                            Random
+                          </label>
+                        </div>
+                        {!settings.seedRandom && (
+                          <input
+                            type="number"
+                            value={settings.seed}
+                            onChange={(e) => setSettings({ seed: parseInt(e.target.value) || 0 })}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                            placeholder="Enter seed..."
+                            disabled={isProcessing}
+                          />
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
@@ -213,6 +270,21 @@ function App() {
                             disabled={isProcessing}
                           />
                         </div>
+                      </div>
+
+                      {/* CLIP Skip */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs text-white/50">CLIP Skip</label>
+                          <span className="text-xs text-premium-accent">{settings.clipSkip}</span>
+                        </div>
+                        <input
+                          type="range" min="1" max={availableOptions.clipSkipMax} step="1"
+                          value={settings.clipSkip}
+                          onChange={(e) => setSettings({ clipSkip: parseInt(e.target.value) })}
+                          className="w-full accent-premium-accent"
+                          disabled={isProcessing}
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -244,7 +316,161 @@ function App() {
                           </select>
                         </div>
                       </div>
-                      {/* Sampler settings ... */}
+
+                      {/* Sampler & Scheduler */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50">Sampler</label>
+                          <select
+                            value={settings.samplerName}
+                            onChange={(e) => setSettings({ samplerName: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                            disabled={isProcessing}
+                          >
+                            {availableOptions.samplers.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50">Scheduler</label>
+                          <select
+                            value={settings.schedulerName}
+                            onChange={(e) => setSettings({ schedulerName: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                            disabled={isProcessing}
+                          >
+                            {availableOptions.schedulers.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* VAE & Output Format */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50">VAE</label>
+                          <select
+                            value={settings.vaeName}
+                            onChange={(e) => setSettings({ vaeName: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                            disabled={isProcessing}
+                          >
+                            {availableOptions.vaes.map(v => (
+                              <option key={v} value={v}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50">Output Format</label>
+                          <select
+                            value={settings.outputFormat}
+                            onChange={(e) => setSettings({ outputFormat: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                            disabled={isProcessing}
+                          >
+                            {availableOptions.outputFormats.map(f => (
+                              <option key={f} value={f}>{f.toUpperCase()}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Refiner Switch At */}
+                      {settings.refinerModelName !== 'None' && (
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <label className="text-xs text-white/50">Refiner Switch At</label>
+                            <span className="text-xs text-premium-accent">{settings.refinerSwitch.toFixed(2)}</span>
+                          </div>
+                          <input
+                            type="range" min="0.1" max="1.0" step="0.05"
+                            value={settings.refinerSwitch}
+                            onChange={(e) => setSettings({ refinerSwitch: parseFloat(e.target.value) })}
+                            className="w-full accent-premium-accent"
+                            disabled={isProcessing}
+                          />
+                        </div>
+                      )}
+
+                      {/* LoRA Settings */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-white/50">LoRAs</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (settings.loras.length < availableOptions.defaultLoraCount) {
+                                setSettings({ loras: [...settings.loras, { enabled: true, name: 'None', weight: 1.0 }] });
+                              }
+                            }}
+                            className="text-xs text-premium-accent hover:text-premium-accent/80"
+                            disabled={isProcessing || settings.loras.length >= availableOptions.defaultLoraCount}
+                          >
+                            + Add LoRA
+                          </button>
+                        </div>
+                        {settings.loras.length > 0 ? (
+                          <div className="space-y-2">
+                            {settings.loras.map((lora, idx) => (
+                              <div key={idx} className="flex items-center gap-2 bg-black/20 rounded-lg p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={lora.enabled}
+                                  onChange={(e) => {
+                                    const newLoras = [...settings.loras];
+                                    newLoras[idx] = { ...lora, enabled: e.target.checked };
+                                    setSettings({ loras: newLoras });
+                                  }}
+                                  className="accent-premium-accent"
+                                  disabled={isProcessing}
+                                />
+                                <select
+                                  value={lora.name}
+                                  onChange={(e) => {
+                                    const newLoras = [...settings.loras];
+                                    newLoras[idx] = { ...lora, name: e.target.value };
+                                    setSettings({ loras: newLoras });
+                                  }}
+                                  className="flex-1 bg-black/40 border border-white/10 rounded p-1 text-xs outline-none"
+                                  disabled={isProcessing}
+                                >
+                                  <option value="None">None</option>
+                                  {availableOptions.loras.map(l => (
+                                    <option key={l} value={l}>{l}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="number"
+                                  value={lora.weight}
+                                  onChange={(e) => {
+                                    const newLoras = [...settings.loras];
+                                    newLoras[idx] = { ...lora, weight: parseFloat(e.target.value) || 0 };
+                                    setSettings({ loras: newLoras });
+                                  }}
+                                  min="-2" max="2" step="0.1"
+                                  className="w-16 bg-black/40 border border-white/10 rounded p-1 text-xs outline-none"
+                                  disabled={isProcessing}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newLoras = settings.loras.filter((_, i) => i !== idx);
+                                    setSettings({ loras: newLoras });
+                                  }}
+                                  className="text-red-400 hover:text-red-300 text-xs px-1"
+                                  disabled={isProcessing}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-white/30 italic">No LoRAs configured</p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -365,19 +591,21 @@ function App() {
       </main>
 
       {/* Lightbox for History */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-200"
-          onClick={() => setSelectedImage(null)}
-        >
-          <img
-            src={selectedImage}
-            className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
-            alt="Full preview"
-          />
-        </div>
-      )}
-    </div>
+      {
+        selectedImage && (
+          <div
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-8 animate-in fade-in duration-200"
+            onClick={() => setSelectedImage(null)}
+          >
+            <img
+              src={selectedImage}
+              className="max-h-full max-w-full object-contain rounded-lg shadow-2xl"
+              alt="Full preview"
+            />
+          </div>
+        )
+      }
+    </div >
   );
 }
 

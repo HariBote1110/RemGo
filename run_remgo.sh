@@ -46,7 +46,8 @@ pkill -f "python3 api_server.py" || true
 # Start Backend in background
 echo "[INFO] Starting Backend API Server..."
 source venv/bin/activate
-python3 api_server.py > api_server.log 2>&1 &
+# --vae-in-bf16: Fixes black image generation with noob/Illustrious models (VAE fp16 precision issue)
+python3 api_server.py --vae-in-bf16 > api_server.log 2>&1 &
 BACKEND_PID=$!
 
 # Function to kill background process on exit

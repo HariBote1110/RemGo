@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export interface LoraSettings {
+    enabled: boolean;
+    name: string;
+    weight: number;
+}
+
 export interface TaskSettings {
     prompt: string;
     negativePrompt: string;
@@ -9,7 +15,8 @@ export interface TaskSettings {
     aspectRatio: string;
     imageNumber: number;
     seed: number;
-    preset: string; // Added preset field
+    seedRandom: boolean;
+    preset: string;
     // Advanced Settings
     guidanceScale: number;
     imageSharpness: number;
@@ -18,6 +25,10 @@ export interface TaskSettings {
     refinerSwitch: number;
     samplerName: string;
     schedulerName: string;
+    vaeName: string;
+    outputFormat: string;
+    clipSkip: number;
+    loras: LoraSettings[];
 }
 
 export interface TaskProgress {
@@ -34,10 +45,16 @@ interface AppState {
     availableOptions: {
         models: string[];
         loras: string[];
+        vaes: string[];
         aspectRatios: string[];
         performanceOptions: string[];
         styles: string[];
-        presets: string[]; // Added presets list
+        presets: string[];
+        samplers: string[];
+        schedulers: string[];
+        outputFormats: string[];
+        clipSkipMax: number;
+        defaultLoraCount: number;
     };
     setSettings: (settings: Partial<TaskSettings>) => void;
     updateTask: (taskId: string, progress: Partial<TaskProgress>) => void;
@@ -50,12 +67,13 @@ export const useStore = create<AppState>()(
             settings: {
                 prompt: '',
                 negativePrompt: '',
-                styleSelections: [], // Default to empty
+                styleSelections: [],
                 performanceSelection: "Speed",
-                aspectRatio: "1152×896", // Adjusted default
+                aspectRatio: "1152×896",
                 imageNumber: 1,
                 seed: -1,
-                preset: 'default', // Default preset
+                seedRandom: true,
+                preset: 'default',
                 guidanceScale: 4.0,
                 imageSharpness: 2.0,
                 baseModelName: 'Default',
@@ -63,15 +81,25 @@ export const useStore = create<AppState>()(
                 refinerSwitch: 0.5,
                 samplerName: 'dpmpp_2m_sde_gpu',
                 schedulerName: 'karras',
+                vaeName: 'Default (model)',
+                outputFormat: 'png',
+                clipSkip: 2,
+                loras: [],
             },
             activeTasks: {},
             availableOptions: {
                 models: [],
                 loras: [],
+                vaes: ['Default (model)'],
                 aspectRatios: ["1024×1024", "1152×896", "896×1152", "1216×832", "832×1216", "1344×768", "768×1344"],
                 performanceOptions: ["Speed", "Quality", "Extreme Speed", "Lightning", "Hyper-SD"],
                 styles: [],
                 presets: [],
+                samplers: ['dpmpp_2m_sde_gpu', 'euler', 'euler_ancestral'],
+                schedulers: ['karras', 'normal', 'exponential'],
+                outputFormats: ['png', 'jpeg', 'webp'],
+                clipSkipMax: 12,
+                defaultLoraCount: 5,
             },
             setSettings: (newSettings) =>
                 set((state) => ({ settings: { ...state.settings, ...newSettings } })),

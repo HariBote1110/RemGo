@@ -17,10 +17,16 @@ export const useApi = () => {
             setOptions({
                 models: data.models,
                 loras: data.loras,
+                vaes: data.vaes || ['Default (model)'],
                 aspectRatios: data.aspect_ratios,
                 performanceOptions: data.performance_options,
                 styles: data.styles,
                 presets: data.presets,
+                samplers: data.samplers || [],
+                schedulers: data.schedulers || [],
+                outputFormats: data.output_formats || ['png', 'jpeg', 'webp'],
+                clipSkipMax: data.clip_skip_max || 12,
+                defaultLoraCount: data.default_lora_count || 5,
             });
         } catch (err) {
             console.error('Failed to fetch settings:', err);
@@ -85,6 +91,7 @@ export const useApi = () => {
                     aspect_ratios_selection: currentSettings.aspectRatio,
                     image_number: currentSettings.imageNumber,
                     image_seed: currentSettings.seed,
+                    seed_random: currentSettings.seedRandom,
                     guidance_scale: currentSettings.guidanceScale,
                     image_sharpness: currentSettings.imageSharpness,
                     base_model_name: currentSettings.baseModelName,
@@ -92,6 +99,10 @@ export const useApi = () => {
                     refiner_switch: currentSettings.refinerSwitch,
                     sampler_name: currentSettings.samplerName,
                     scheduler_name: currentSettings.schedulerName,
+                    vae_name: currentSettings.vaeName,
+                    output_format: currentSettings.outputFormat,
+                    clip_skip: currentSettings.clipSkip,
+                    loras: currentSettings.loras.map(l => [l.enabled, l.name, l.weight]),
                 }),
             });
             const data = await resp.json();

@@ -46,6 +46,7 @@ class TaskRequest(BaseModel):
     aspect_ratios_selection: str = "1024×1024"
     image_number: int = 1
     image_seed: int = -1
+    seed_random: bool = True
     image_sharpness: float = 2.0
     guidance_scale: float = 4.0
     base_model_name: str = "juggernautXL_v8Rundiffusion.safetensors"
@@ -53,6 +54,9 @@ class TaskRequest(BaseModel):
     refiner_switch: float = 0.5
     sampler_name: str = "dpmpp_2m_sde_gpu"
     scheduler_name: str = "karras"
+    vae_name: str = "Default (model)"
+    output_format: str = "png"
+    clip_skip: int = 2
     loras: List[List] = [] # [[enabled, name, weight], ...]
 
 class TaskStatus:
@@ -76,10 +80,16 @@ async def get_settings():
     return {
         "models": config.model_filenames,
         "loras": config.lora_filenames,
+        "vaes": [flags.default_vae] + config.vae_filenames,
         "aspect_ratios": [r.replace('*', '×') for r in config.available_aspect_ratios],
         "performance_options": [p.value for p in flags.Performance] if hasattr(flags.Performance, '__iter__') else flags.Performance.values(),
         "styles": legal_style_names,
-        "presets": config.available_presets
+        "presets": config.available_presets,
+        "samplers": flags.sampler_list,
+        "schedulers": flags.scheduler_list,
+        "output_formats": flags.OutputFormat.list(),
+        "clip_skip_max": flags.clip_skip_max,
+        "default_lora_count": config.default_max_lora_number
     }
 
 @app.get("/presets")
@@ -107,8 +117,8 @@ def build_async_task_args(request: TaskRequest):
         request.performance_selection,
         request.aspect_ratios_selection.replace('*', '×'),
         request.image_number,
-        "png", # output_format
-        request.image_seed if request.image_seed != -1 else int(time.time()),
+        request.output_format, # output_format
+        request.image_seed if not request.seed_random and request.image_seed != -1 else int(time.time()),
         False, # read_wildcards_in_order
         request.image_sharpness,
         request.guidance_scale,
@@ -142,10 +152,10 @@ def build_async_task_args(request: TaskRequest):
         0.8, # adm_scaler_negative
         0.3, # adm_scaler_end
         config.default_cfg_tsnr, # adaptive_cfg
-        1, # clip_skip
+        request.clip_skip, # clip_skip
         request.sampler_name,
         request.scheduler_name,
-        config.default_vae, # vae_name
+        request.vae_name, # vae_name
         -1, # overwrite_step
         -1, # overwrite_switch
         -1, # overwrite_width

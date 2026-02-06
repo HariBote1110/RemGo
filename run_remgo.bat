@@ -64,7 +64,8 @@ if not exist node_modules (
 
 :: Start Backend in a new window
 echo [INFO] Starting Backend API Server...
-start "RemGo Backend" cmd /k "cd /d %~dp0 && call venv\Scripts\activate && python api_server.py"
+:: --vae-in-bf16: Fixes black image generation with noob/Illustrious models (VAE fp16 precision issue)
+start "RemGo Backend" cmd /k "cd /d %~dp0 && call venv\Scripts\activate && python api_server.py --vae-in-bf16"
 
 :: Start Frontend
 echo [INFO] Starting Frontend Dev Server...
