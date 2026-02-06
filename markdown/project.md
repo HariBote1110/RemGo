@@ -1,67 +1,57 @@
-# RemGo開発計画書
+# Fooocus カスタムフォーク RemGo 開発計画書：Decoupledアーキテクチャ版
 
-## 1. プロジェクト概要
+## 1. 新アーキテクチャ方針
 
-Windowsマシンをサーバー（計算リソース）として活用し、Mac等のクライアント端末からリモート操作することを前提とした、高効率な画像生成環境の構築。
-
-## 2. コア・コンセプト
-
-* **Decoupled UI (UIの分離):** ブラウザを閉じてもサーバー側のプロセスと生成状態を維持する。
-* **Persistent State (状態の永続化):** 入力値、プロンプト、設定を常にDBまたはJSONに同期し、リロード時に復元する。
-* **Multi-GPU Multi-Session:** 装着されている各GPUに対して独立したセッションを割り当て、並列作業を可能にする。
+Python側は画像生成のロジックとGPU制御に専念させ、ユーザーインターフェースは完全に独立したReactアプリケーションとして構築します。
 
 ---
 
-## 3. 開発ロードマップ
+## 2. 開発ロードマップ（改訂版）
 
-### フェーズ 1: リモートアクセスとネットワーク最適化
+### フェーズ 1: PythonバックエンドのAPI化 (FastAPI / Flask)
 
-* **外部アクセスの許可:** `--listen` 引数のデフォルト有効化と、ファイアウォール設定の自動化。
-* **静的IP/ホスト名対応:** Macから `http://windows-pc.local:7860` のような形式で安定してアクセスできる環境の整備。
-* **アセットの軽量化:** プレビュー画像の圧縮転送設定（リモート環境でのUIレスポンス向上）。
+* **Gradioからの脱却:** 現在のUI定義を破棄し、FastAPI等でエンドポイント（`/generate`, `/status`, `/settings`）を構築。
+* **WebSocketの実装:** 生成中のプレビュー画像や進捗率をリアルタイムでMac（ブラウザ）へ送信するため、双方向通信を導入。
+* **Headlessモード:** UIを持たず、コマンドライン引数で指定されたGPUデバイス上でAPIサーバーとして待機する機能を実装。
 
-### フェーズ 2: UI状態の永続化 (Auto-Save/Restore)
+### フェーズ 2: Reactフロントエンドの構築
 
-* **Backend Session Storeの構築:** * ユーザーがブラウザで入力した内容を、変更のたびにサーバー側の `session_config.json` に即時保存。
-* **Frontend Hydration:**
-* Gradioの `load` イベント時に、サーバーから前回終了時のパラメータを読み込み、UIに反映させる処理の実装。
-
-
-* **History Manager:**
-* 生成履歴だけでなく、その時の「設定セット」をワンクリックで復元できるプリセット機能の強化。
+* **State Management (Zustand / Redux):**
+* ブラウザの `LocalStorage` または `IndexedDB` を活用。入力中のプロンプトやパラメータをリアルタイム保存。
 
 
-
-### フェーズ 3: マルチGPUセッション管理
-
-* **GPUインスタンス・マネージャー:**
-* システム上の全GPU（CUDAデバイス）を検出し、デバイスIDごとに個別ポート（例: 7860, 7861...）でプロセスを立ち上げる管理UI。
+* **Mac/iPad最適化:**
+* レスポンシブデザインの採用と、Macのキーボードショートカット（Cmd+Enterでの生成など）への対応。
 
 
-* **リソース・スケジューリング:**
-* 特定のセッションを特定のGPUに固定（Affinity設定）し、VRAMの競合を防止。
+* **マルチセッション・インターフェース:**
+* タブ切り替え形式で、Windows上の「GPU 0」と「GPU 1」の生成状況を同時に操作・監視できるダッシュボード。
 
 
-* **統合ダッシュボード:**
-* 各GPUの稼働状況（使用率・温度・生成進捗）を一つの画面で監視できるモニタリング機能。
+
+### フェーズ 3: マルチGPU・オーケストレーション
+
+* **Central Controller:**
+* 各GPUプロセスを統括する軽量なマネージャー（Node.js または Python）を設置。
+* フロントエンドからのリクエストを、空いているGPUセッションへルーティング。
 
 
 
 ---
 
-## 4. 技術スタックの変更点
+## 3. 技術スタック案
 
-| 機能 | 現状 (Fooocus) | 変更案 |
+| レイヤー | 技術 | 役割 |
 | --- | --- | --- |
-| **UI Framework** | Gradio (Standard) | Gradio + Custom JavaScript (Local Storage連携) |
-| **State Management** | Memory-based | SQLite または JSON-based Store |
-| **GPU Dispatch** | Single instance | Multi-process wrapper (Python Subprocess管理) |
-| **Remote Access** | Optional | Default enabled with Basic Auth (セキュリティ確保) |
+| **Frontend** | **React + Vite / Tailwind CSS** | 高速なUI、永続的なステート管理 |
+| **API Backend** | **FastAPI (Python)** | Fooocusコアロジックの呼び出し、GPU制御 |
+| **Communication** | **WebSockets** | 生成進捗のリアルタイム・フィードバック |
+| **Process Mgmt** | **PM2** (or Custom script) | Windows上での複数Pythonプロセスの永続化 |
 
 ---
 
-## 5. 実装上の注意点
+## 4. この構成のメリット
 
-1. **Gradioの制約:** Gradioはステートフルな設計が難しいため、ブラウザ側（JavaScript）での値の保持と、サーバー側APIの叩き分けが必要になります。
-2. **VRAM管理:** マルチセッション化する際、共有モデル（Base Model等）のメモリ重複ロードを避けるための共有メモリ設計、あるいは明確なGPU分離が必要です。
-3. **ファイルパス:** WindowsとMacではパスの記法が異なります。パス操作は必ず `pathlib` を使用し、OSに依存しない実装を徹底してください。
+* **ステート保持の自由度:** ブラウザを閉じても、React側の状態管理ライブラリが値を保持しているため、再開が容易です。
+* **低遅延:** Reactを使用することでUIの再描画が最小限になり、リモート（Mac）からの操作がネイティブアプリのように滑らかになります。
+* **拡張性:** 将的にモバイル（iPhone/iPad）専用のUIを構築したり、APIを他の自作ツールから叩くことも可能になります。
