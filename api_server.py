@@ -174,7 +174,7 @@ def build_async_task_args(request: TaskRequest):
         False, # enhance_checkbox
         disabled, # enhance_uov_method
         flags.enhancement_uov_before, # enhance_uov_processing_order
-        flags.enhancement_uov_prompt_both, # enhance_uov_prompt_type
+        flags.enhancement_uov_prompt_type_original, # enhance_uov_prompt_type
     ])
     
     # Enhance tabs
@@ -262,9 +262,17 @@ if __name__ == "__main__":
 
         if args.gpu_device_id is not None:
             os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu_device_id)
-        # Skip initialization of models to avoid "File Not Found" errors during development
-        # init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
-        print("Skipping model cache initialization for quick API testing.")
+
+        # Initialize and download models if necessary
+        from modules.hash_cache import init_cache
+        from launch import download_models
+        
+        config.default_base_model_name, config.checkpoint_downloads = download_models(
+            config.default_base_model_name, config.previous_default_models, config.checkpoint_downloads,
+            config.embeddings_downloads, config.lora_downloads, config.vae_downloads)
+
+        config.update_files()
+        init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
         
         from modules.sdxl_styles import legal_style_names
         
