@@ -40,7 +40,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Installing PyTorch (CUDA 12.1)...
-pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 --index-url https://download.pytorch.org/whl/cu121
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install PyTorch.
     pause
@@ -48,7 +48,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [INFO] Ensuring critical packages are installed...
-pip install fastapi uvicorn[standard] websockets python-multipart numpy pillow requests tqdm opencv-contrib-python-headless scipy
+pip install fastapi uvicorn[standard] websockets==11.0.3 python-multipart numpy pillow requests tqdm opencv-contrib-python-headless scipy
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
