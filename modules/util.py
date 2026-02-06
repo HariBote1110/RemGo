@@ -374,10 +374,24 @@ def get_file_from_folder_list(name, folders):
         folders = [folders]
 
     for folder in folders:
-        filename = os.path.abspath(os.path.realpath(os.path.join(folder, name)))
+        folder = os.path.abspath(os.path.realpath(folder))
+        
+        # 1. Exact match check
+        filename = os.path.join(folder, name)
         if os.path.isfile(filename):
             return filename
+            
+        # 2. Case-insensitive check
+        if os.path.isdir(folder):
+            try:
+                files = os.listdir(folder)
+                for f in files:
+                    if f.lower() == name.lower():
+                        return os.path.join(folder, f)
+            except Exception as e:
+                print(f"Error listing directory {folder}: {e}")
 
+    # Default fallback (original behavior)
     return os.path.abspath(os.path.realpath(os.path.join(folders[0], name)))
 
 
