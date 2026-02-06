@@ -81,3 +81,8 @@ INFO:     127.0.0.1:63211 - "WebSocket /ws" [accepted]
 INFO:     connection open
 INFO:     127.0.0.1:63213 - "GET /settings HTTP/1.1" 200 OK
 INFO:     connection closed
+INFO:     127.0.0.1:65522 - "GET /settings HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [44824]

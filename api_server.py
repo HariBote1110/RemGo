@@ -66,14 +66,19 @@ class TaskStatus:
 active_tasks = {} # task_id -> TaskStatus
 task_queue = []
 
+try:
+    from modules.sdxl_styles import legal_style_names
+except ImportError:
+    legal_style_names = []
+
 @app.get("/settings")
 async def get_settings():
     return {
         "models": config.model_filenames,
         "loras": config.lora_filenames,
         "aspect_ratios": list(config.available_aspect_ratios_labels),
-        "performance_options": flags.Performance.values(),
-        "styles": legal_style_names if hasattr(config, 'legal_style_names') else []
+        "performance_options": [p.value for p in flags.Performance] if hasattr(flags.Performance, '__iter__') else flags.Performance.values(),
+        "styles": legal_style_names
     }
 
 def build_async_task_args(request: TaskRequest):

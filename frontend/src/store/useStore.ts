@@ -49,7 +49,7 @@ export const useStore = create<AppState>()(
                 negativePrompt: '',
                 styleSelections: ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"],
                 performanceSelection: "Speed",
-                aspectRatio: "1024*1024",
+                aspectRatio: "1024×1024",
                 imageNumber: 1,
                 seed: -1,
                 guidanceScale: 4.0,
@@ -64,8 +64,8 @@ export const useStore = create<AppState>()(
             availableOptions: {
                 models: [],
                 loras: [],
-                aspectRatios: [],
-                performanceOptions: [],
+                aspectRatios: ["1024×1024", "1152×896", "896×1152", "1216×832", "832×1216", "1344×768", "768×1344"],
+                performanceOptions: ["Speed", "Quality", "Extreme Speed", "Lightning", "Hyper-SD"],
                 styles: [],
             },
             setSettings: (newSettings) =>

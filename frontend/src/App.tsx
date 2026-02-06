@@ -89,8 +89,11 @@ function App() {
                   onChange={(e) => setSettings({ aspectRatio: e.target.value })}
                   className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm outline-none"
                 >
+                  {!availableOptions.aspectRatios.includes(settings.aspectRatio) && (
+                    <option value={settings.aspectRatio}>{settings.aspectRatio}</option>
+                  )}
                   {availableOptions.aspectRatios.map(opt => (
-                    <option key={opt} value={opt}>{opt.replace(/<.*>/, '')}</option>
+                    <option key={opt} value={opt}>{opt.replace(/<[^>]*>/g, '').trim()}</option>
                   ))}
                 </select>
               </div>

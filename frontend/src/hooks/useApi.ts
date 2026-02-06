@@ -13,6 +13,7 @@ export const useApi = () => {
         try {
             const resp = await fetch(`${API_BASE}/settings`);
             const data = await resp.json();
+            console.log('Fetched settings:', data);
             setOptions({
                 models: data.models,
                 loras: data.loras,
