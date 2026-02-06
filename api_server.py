@@ -43,7 +43,7 @@ class TaskRequest(BaseModel):
     negative_prompt: Optional[str] = ""
     style_selections: List[str] = ["Fooocus V2", "Fooocus Enhance", "Fooocus Sharp"]
     performance_selection: str = "Speed"
-    aspect_ratios_selection: str = "1024*1024"
+    aspect_ratios_selection: str = "1024×1024"
     image_number: int = 1
     image_seed: int = -1
     image_sharpness: float = 2.0
@@ -92,7 +92,7 @@ def build_async_task_args(request: TaskRequest):
         request.negative_prompt,
         request.style_selections,
         request.performance_selection,
-        request.aspect_ratios_selection,
+        request.aspect_ratios_selection.replace('*', '×'),
         request.image_number,
         "png", # output_format
         request.image_seed if request.image_seed != -1 else int(time.time()),
