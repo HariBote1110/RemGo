@@ -3,7 +3,8 @@ import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
 import { Sparkles, Image as ImageIcon, History, Send, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8888';
+const API_HOSTNAME = window.location.hostname;
+const API_BASE = `http://${API_HOSTNAME}:8888`;
 
 function App() {
   const { settings, setSettings, activeTasks, availableOptions } = useStore();

@@ -2,8 +2,9 @@ import { useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import type { TaskSettings } from '../store/useStore';
 
-const API_BASE = 'http://localhost:8888';
-const WS_BASE = 'ws://localhost:8888';
+const API_HOSTNAME = window.location.hostname;
+const API_BASE = `http://${API_HOSTNAME}:8888`;
+const WS_BASE = `ws://${API_HOSTNAME}:8888`;
 
 export const useApi = () => {
     const { setOptions, updateTask, settings } = useStore();
