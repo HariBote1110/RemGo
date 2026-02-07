@@ -51,6 +51,7 @@ function loadSettings(): any {
     const lorasPath = path.join(rootPath, 'models', 'loras');
     const vaesPath = path.join(rootPath, 'models', 'vae');
     const presetsPath = path.join(rootPath, 'presets');
+    const stylesPath = path.join(rootPath, 'sdxl_styles');
 
     const models = fs.existsSync(checkpointsPath)
         ? fs.readdirSync(checkpointsPath).filter(f => f.endsWith('.safetensors'))
@@ -70,11 +71,33 @@ function loadSettings(): any {
             .map(f => f.replace('.json', ''))
         : ['default'];
 
+    // Load styles from all JSON files in sdxl_styles directory
+    let styles: string[] = [];
+    if (fs.existsSync(stylesPath)) {
+        const styleFiles = fs.readdirSync(stylesPath).filter(f => f.endsWith('.json'));
+        for (const file of styleFiles) {
+            try {
+                const content = fs.readFileSync(path.join(stylesPath, file), 'utf-8');
+                const styleData = JSON.parse(content);
+                if (Array.isArray(styleData)) {
+                    styles = styles.concat(styleData.map((s: any) => s.name).filter(Boolean));
+                }
+            } catch (e) {
+                // Ignore invalid JSON files
+            }
+        }
+    }
+    // Add default styles if none found
+    if (styles.length === 0) {
+        styles = ['Fooocus V2', 'Fooocus Enhance', 'Fooocus Sharp'];
+    }
+
     return {
         models,
         loras,
         vaes: ['Default (model)', ...vaes],
         presets,
+        styles,
         aspect_ratios: ['704×1408', '704×1344', '768×1344', '768×1280', '832×1216', '832×1152',
             '896×1152', '896×1088', '960×1088', '960×1024', '1024×1024', '1024×960',
             '1088×960', '1088×896', '1152×896', '1152×832', '1216×832', '1280×768',
