@@ -268,7 +268,42 @@ async def get_history():
 
 @app.get("/history/metadata/{date_dir}/{filename}")
 async def get_image_metadata(date_dir: str, filename: str):
-    """Get metadata embedded in an image file."""
+    """Get metadata from log.html for an image file."""
+    import re
+    import urllib.parse
+    
+    outputs_dir = os.path.join(root, 'outputs')
+    log_path = os.path.join(outputs_dir, date_dir, 'log.html')
+    
+    if not os.path.exists(log_path):
+        # Fallback: try to read from image metadata
+        return await get_image_metadata_from_file(date_dir, filename)
+    
+    try:
+        with open(log_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Find the div containing this image
+        # The image name is in the div id attribute (with _ instead of .)
+        image_id = filename.replace('.', '_')
+        
+        # Find the button onclick with metadata for this image
+        # Pattern: div id="filename"...to_clipboard('encoded_json')
+        pattern = rf'<div id="{re.escape(image_id)}"[^>]*>.*?to_clipboard\(\'([^\']+)\'\)'
+        match = re.search(pattern, html_content, re.DOTALL)
+        
+        if match:
+            encoded_json = match.group(1)
+            decoded_json = urllib.parse.unquote(encoded_json)
+            metadata = json.loads(decoded_json)
+            return {"metadata": metadata, "scheme": "fooocus_log"}
+        else:
+            return {"metadata": None, "scheme": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {str(e)}")
+
+async def get_image_metadata_from_file(date_dir: str, filename: str):
+    """Fallback: Get metadata embedded in an image file."""
     from PIL import Image
     from modules.meta_parser import read_info_from_image, get_metadata_parser
     
@@ -285,7 +320,6 @@ async def get_image_metadata(date_dir: str, filename: str):
             if parameters is None:
                 return {"metadata": None, "scheme": None}
             
-            # Parse metadata based on scheme
             result = {}
             if metadata_scheme:
                 try:
@@ -294,8 +328,7 @@ async def get_image_metadata(date_dir: str, filename: str):
                         result = parser.to_json(parameters)
                     elif isinstance(parameters, dict):
                         result = parameters
-                except Exception as e:
-                    # If parsing fails, return raw parameters
+                except Exception:
                     result = parameters if isinstance(parameters, dict) else {"raw": parameters}
             else:
                 result = parameters if isinstance(parameters, dict) else {"raw": parameters}
