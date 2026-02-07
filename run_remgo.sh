@@ -30,7 +30,7 @@ fi
 echo "[INFO] Activating virtual environment and installing dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements_versions.txt
+pip install -r requirements_remgo.txt
 
 # Setup Frontend
 echo "[INFO] Setting up frontend dependencies..."
