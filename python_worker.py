@@ -218,14 +218,17 @@ class WorkerHandler(BaseHTTPRequestHandler):
             True,  # input_image_checkbox
             'disabled',  # current_tab
             flags.uov_list[0],  # uov_method
-            None, None, None, None,  # uov/inpaint images
-            '',  # outpaint selections
+            None,  # uov_input_image
+            [],  # outpaint_selections (must be a list, not string)
             None,  # inpaint_input_image
             '',  # inpaint_additional_prompt
             None,  # inpaint_mask_image_upload
-            config.default_black_out_nsfw,
-            1.5, 0.8, 0.3,  # adm scalers
-            config.default_cfg_tsnr,
+            False,  # disable_preview
+            False,  # disable_intermediate_results
+            False,  # disable_seed_increment
+            config.default_black_out_nsfw,  # black_out_nsfw
+            1.5, 0.8, 0.3,  # adm scalers (positive, negative, end)
+            config.default_cfg_tsnr,  # adaptive_cfg
             clip_skip,
             sampler,
             scheduler,

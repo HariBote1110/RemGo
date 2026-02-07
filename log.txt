@@ -1,60 +1,41 @@
-[Debug] [vite] connecting... (client, line 733)
-[Error] WebSocket connection to 'ws://192.168.0.30:8888/ws' failed: WebSocket is closed before the connection is established.
-	react_stack_bottom_frame (react-dom_client.js:18573)
-	runWithFiberInDEV (react-dom_client.js:999)
-	commitHookEffectListUnmount (react-dom_client.js:9449:178)
-	commitHookPassiveUnmountEffects (react-dom_client.js:9468:88)
-	disconnectPassiveEffect (react-dom_client.js:11560)
-	recursivelyTraverseDisconnectPassiveEffects (react-dom_client.js:11552)
-	disconnectPassiveEffect (react-dom_client.js:11572)
-	doubleInvokeEffectsOnFiber (react-dom_client.js:13339)
-	runWithFiberInDEV (react-dom_client.js:999)
-	recursivelyTraverseAndDoubleInvokeEffectsInDEV (react-dom_client.js:13312:96)
-	commitDoubleInvokeEffectsInDEV (react-dom_client.js:13347)
-	flushPassiveEffects (react-dom_client.js:13157)
-	（anonymous関数） (react-dom_client.js:12776)
-	performWorkUntilDeadline (react-dom_client.js:36)
-[Log] Disconnected from RemGo WebSocket
-[Log] Fetched settings: – {models: ["animagineXLV31_v31.safetensors", "juggernautXL_v8Rundiffusion.safetensors", "matrixHentai_v55.safetensors"], loras: ["sd_xl_offset_example-lora_1.0.safetensors"], vaes: ["Default (model)"], …} (useApi.ts, line 12)
-{models: ["animagineXLV31_v31.safetensors", "juggernautXL_v8Rundiffusion.safetensors", "matrixHentai_v55.safetensors"], loras: ["sd_xl_offset_example-lora_1.0.safetensors"], vaes: ["Default (model)"], presets: Array, aspect_ratios: Array, …}Object
-[Error] TypeError: undefined is not an object (evaluating 'availableOptions.styles.length')
-	reportError (App.tsx:218)
-	defaultOnUncaughtError (react-dom_client.js:6965)
-	logUncaughtError (react-dom_client.js:7020)
-	runWithFiberInDEV (react-dom_client.js:999)
-	（anonymous関数） (react-dom_client.js:7048)
-	callCallback (react-dom_client.js:5491)
-	commitCallbacks (react-dom_client.js:5503)
-	runWithFiberInDEV (react-dom_client.js:999)
-	commitLayoutEffectOnFiber (react-dom_client.js:9976)
-	flushLayoutEffects (react-dom_client.js:12924:146)
-	commitRoot (react-dom_client.js:12803)
-	commitRootWhenReady (react-dom_client.js:12016)
-	performWorkOnRoot (react-dom_client.js:11950)
-	performSyncWorkOnRoot (react-dom_client.js:13517)
-	flushSyncWorkAcrossRoots_impl (react-dom_client.js:13414:144)
-	processRootScheduleInMicrotask (react-dom_client.js:13437:136)
-	（anonymous関数） (react-dom_client.js:13531)
-[Warning] An error occurred in the <App> component. (react-dom_client.js, line 6966)
 
-Consider adding an error boundary to your tree to customize error handling behavior.
-Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+> remgo-backend@1.0.0 dev
+> tsx watch src/server.ts
 
-[Error] WebSocket connection to 'ws://192.168.0.30:8888/ws' failed: WebSocket is closed before the connection is established.
-	react_stack_bottom_frame (react-dom_client.js:18573)
-	runWithFiberInDEV (react-dom_client.js:999)
-	commitHookEffectListUnmount (react-dom_client.js:9449:178)
-	commitHookPassiveUnmountEffects (react-dom_client.js:9468:88)
-	commitPassiveUnmountEffectsInsideOfDeletedTree_begin (react-dom_client.js:11593)
-	recursivelyTraversePassiveUnmountEffects (react-dom_client.js:11465)
-	commitPassiveUnmountOnFiber (react-dom_client.js:11498)
-	flushPassiveEffects (react-dom_client.js:13146)
-	flushSpawnedWork (react-dom_client.js:13062)
-	commitRoot (react-dom_client.js:12804)
-	commitRootWhenReady (react-dom_client.js:12016)
-	performWorkOnRoot (react-dom_client.js:11950)
-	performSyncWorkOnRoot (react-dom_client.js:13517)
-	flushSyncWorkAcrossRoots_impl (react-dom_client.js:13414:144)
-	processRootScheduleInMicrotask (react-dom_client.js:13437:136)
-	（anonymous関数） (react-dom_client.js:13531)
-[Log] Disconnected from RemGo WebSocket
+[Scheduler] Loaded 2 GPUs:
+  - Device 0: RTX 3070 Ti (weight: 3, port: 9000)
+  - Device 1: GTX 1650 Super (weight: 1, port: 9001)
+[WorkerManager] Python path: D:\Documents\GitHub\RemGo\venv\Scripts\python.exe
+[Server] Starting RemGo API Server...
+[Server] Multi-GPU mode with 2 GPUs
+[WorkerManager] Starting worker for GPU 0 on port 9000
+[WorkerManager] Worker 0 is ready
+[WorkerManager] Starting worker for GPU 1 on port 9001
+[WorkerManager] Worker 1 is ready
+{"level":30,"time":1770456699473,"pid":28752,"hostname":"mainPC","msg":"Server listening at http://0.0.0.0:8888"}
+[Server] RemGo API Server running on http://0.0.0.0:8888
+{"level":30,"time":1770456709326,"pid":28752,"hostname":"mainPC","reqId":"req-1","req":{"method":"GET","url":"/settings","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62409},"msg":"incoming request"}
+{"level":30,"time":1770456709331,"pid":28752,"hostname":"mainPC","reqId":"req-1","res":{"statusCode":200},"responseTime":4.341100000077859,"msg":"request completed"}
+[WS] Client connected
+{"level":30,"time":1770456709331,"pid":28752,"hostname":"mainPC","reqId":"req-2","req":{"method":"GET","url":"/ws","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62408},"msg":"incoming request"}
+{"level":30,"time":1770456709334,"pid":28752,"hostname":"mainPC","reqId":"req-3","req":{"method":"GET","url":"/settings","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62411},"msg":"incoming request"}
+{"level":30,"time":1770456709335,"pid":28752,"hostname":"mainPC","reqId":"req-3","res":{"statusCode":200},"responseTime":1.345899999840185,"msg":"request completed"}
+[WS] Client connected
+{"level":30,"time":1770456709335,"pid":28752,"hostname":"mainPC","reqId":"req-4","req":{"method":"GET","url":"/ws","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62412},"msg":"incoming request"}
+{"level":30,"time":1770456712604,"pid":28752,"hostname":"mainPC","reqId":"req-5","req":{"method":"OPTIONS","url":"/generate","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62409},"msg":"incoming request"}
+{"level":30,"time":1770456712604,"pid":28752,"hostname":"mainPC","reqId":"req-5","res":{"statusCode":204},"responseTime":0.48060000012628734,"msg":"request completed"}
+{"level":30,"time":1770456712606,"pid":28752,"hostname":"mainPC","reqId":"req-6","req":{"method":"POST","url":"/generate","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62411},"msg":"incoming request"}
+{"level":30,"time":1770456712609,"pid":28752,"hostname":"mainPC","reqId":"req-6","res":{"statusCode":200},"responseTime":2.484900000039488,"msg":"request completed"}
+[Worker 0] Traceback (most recent call last):
+[Worker 0] File "D:\Documents\GitHub\RemGo\modules\async_worker.py", line 1471, in worker
+    handler(task)
+  File "D:\Documents\GitHub\RemGo\venv\Lib\site-packages\torch\utils\_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Documents\GitHub\RemGo\venv\Lib\site-packages\torch\utils\_contextlib.py", line 115, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Documents\GitHub\RemGo\modules\async_worker.py", line 1075, in handler
+    async_task.outpaint_selections = [o.lower() for o in async_task.outpaint_selections]
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not iterable
