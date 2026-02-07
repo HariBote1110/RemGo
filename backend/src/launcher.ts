@@ -3,13 +3,13 @@ import * as path from 'path';
 import { spawn, spawnSync, ChildProcess } from 'child_process';
 
 const isWindows = process.platform === 'win32';
-const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+const npmCmd = 'npm';
 
-function runCommandOrThrow(command: string, args: string[], cwd: string): void {
+function runCommandOrThrow(command: string, args: string[], cwd: string, useShell = false): void {
     const result = spawnSync(command, args, {
         cwd,
         stdio: 'inherit',
-        shell: false,
+        shell: useShell,
     });
 
     if (result.status !== 0) {
@@ -61,7 +61,7 @@ function ensureNodeModules(projectPath: string): void {
         return;
     }
     console.log(`[Launcher] Installing dependencies in ${projectPath} ...`);
-    runCommandOrThrow(npmCmd, ['install'], projectPath);
+    runCommandOrThrow(npmCmd, ['install'], projectPath, isWindows);
 }
 
 function installPythonDependencies(rootPath: string, python: string): void {
@@ -79,7 +79,7 @@ function startBackend(rootPath: string): ChildProcess {
     const child = spawn(npmCmd, ['run', 'dev'], {
         cwd: backendPath,
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: false,
+        shell: isWindows,
     });
 
     child.stdout?.pipe(logStream);
@@ -101,7 +101,7 @@ function startFrontend(rootPath: string): ChildProcess {
     return spawn(npmCmd, ['run', 'dev'], {
         cwd: frontendPath,
         stdio: 'inherit',
-        shell: false,
+        shell: isWindows,
     });
 }
 
