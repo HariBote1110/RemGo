@@ -1,5 +1,6 @@
 {
     "enabled": true,
+    "distribute": true,
     "gpus": [
         {
             "device": 0,

@@ -28,6 +28,15 @@ app.register(cors, { origin: '*' });
 app.register(fastifyStatic, {
     root: outputsPath,
     prefix: '/images/',
+    list: true, // Enable directory listing for debugging
+    // Ensure content type is set correctly
+    setHeaders: (res, path, stat) => {
+        if (path.endsWith('.png')) {
+            res.setHeader('Content-Type', 'image/png');
+        } else if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+            res.setHeader('Content-Type', 'image/jpeg');
+        }
+    }
 });
 
 // WebSocket
@@ -259,14 +268,46 @@ app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {
 });
 
 app.get('/history', async () => {
-    // Read from SQLite database
-    const dbPath = path.join(outputsPath, 'metadata.db');
-    if (!fs.existsSync(dbPath)) {
+    // Simple file-based history implementation
+    try {
+        if (!fs.existsSync(outputsPath)) {
+            return [];
+        }
+
+        const history: any[] = [];
+        const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
+
+        // Iterate over date directories (e.g., 2026-02-07)
+        for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const dateDir = path.join(outputsPath, entry.name);
+                const files = fs.readdirSync(dateDir);
+
+                for (const file of files) {
+                    if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg')) {
+                        // Create history item
+                        // Path should be relative to outputs path for frontend
+                        // e.g., "2026-02-07/image_123.png"
+                        const relPath = `${entry.name}/${file}`;
+                        history.push({
+                            path: relPath,
+                            url: `/images/${relPath}`,
+                            name: file,
+                            date: entry.name,
+                            timestamp: fs.statSync(path.join(dateDir, file)).mtimeMs
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by timestamp descending and limit to 100
+        return history.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+
+    } catch (error) {
+        console.error('[History] Error scanning outputs:', error);
         return [];
     }
-
-    // For now, return empty - would need sqlite3 package
-    return [];
 });
 
 // WebSocket connections for real-time updates

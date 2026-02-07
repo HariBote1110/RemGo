@@ -13,6 +13,7 @@ export interface GPUConfig {
 
 export interface GPUConfigFile {
     enabled: boolean;
+    distribute?: boolean; // New option for distributed processing
     gpus: GPUConfig[];
 }
 
@@ -26,6 +27,7 @@ export interface GPUState {
 export class GPUScheduler {
     private gpus: GPUState[] = [];
     private enabled: boolean = false;
+    private distribute: boolean = true; // Default to true
     private basePort: number = 9000;
 
     constructor(configPath?: string) {
@@ -44,6 +46,7 @@ export class GPUScheduler {
             const config: GPUConfigFile = JSON.parse(content);
 
             this.enabled = config.enabled || false;
+            this.distribute = config.distribute !== undefined ? config.distribute : true;
 
             if (!this.enabled) {
                 console.log('[Scheduler] Disabled in config');
@@ -59,7 +62,7 @@ export class GPUScheduler {
                 });
             });
 
-            console.log(`[Scheduler] Loaded ${this.gpus.length} GPUs:`);
+            console.log(`[Scheduler] Loaded ${this.gpus.length} GPUs (Distribute: ${this.distribute}):`);
             this.gpus.forEach(gpu => {
                 console.log(`  - Device ${gpu.config.device}: ${gpu.config.name} (weight: ${gpu.config.weight}, port: ${gpu.port})`);
             });
@@ -71,6 +74,10 @@ export class GPUScheduler {
 
     isEnabled(): boolean {
         return this.enabled && this.gpus.length > 0;
+    }
+
+    isDistributeEnabled(): boolean {
+        return this.distribute;
     }
 
     getGPUs(): GPUState[] {
@@ -156,8 +163,17 @@ export class GPUScheduler {
             return [];
         }
 
-        // If only 1 image or 1 GPU, assign all to first GPU
-        if (totalImages <= 1 || gpusToUse.length === 1) {
+        // If distribute is disabled or only 1 image/GPU, assign all to first GPU
+        if (!this.distribute || totalImages <= 1 || gpusToUse.length === 1) {
+            // If distribute is disabled, prefer the GPU with highest weight (most powerful)
+            // or the first one if all weights are equal
+            if (!this.distribute) {
+                // Find most powerful GPU
+                const bestGpu = gpusToUse.reduce((prev, current) =>
+                    (prev.config.weight > current.config.weight) ? prev : current
+                );
+                return [{ gpu: bestGpu, imageCount: totalImages }];
+            }
             return [{ gpu: gpusToUse[0], imageCount: totalImages }];
         }
 
