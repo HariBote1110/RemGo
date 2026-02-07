@@ -1,0 +1,87 @@
+{
+  "models": [
+    "a.safetensors"
+  ],
+  "loras": [
+    "lora1.safetensors"
+  ],
+  "vaes": [
+    "Default (model)",
+    "vae1.safetensors"
+  ],
+  "presets": [
+    "photo"
+  ],
+  "styles": [
+    "Style Alpha",
+    "Style Beta"
+  ],
+  "aspect_ratios": [
+    "704×1408",
+    "704×1344",
+    "768×1344",
+    "768×1280",
+    "832×1216",
+    "832×1152",
+    "896×1152",
+    "896×1088",
+    "960×1088",
+    "960×1024",
+    "1024×1024",
+    "1024×960",
+    "1088×960",
+    "1088×896",
+    "1152×896",
+    "1152×832",
+    "1216×832",
+    "1280×768",
+    "1344×768",
+    "1344×704",
+    "1408×704"
+  ],
+  "performance_options": [
+    "Speed",
+    "Quality",
+    "Extreme Speed"
+  ],
+  "samplers": [
+    "euler",
+    "euler_ancestral",
+    "heun",
+    "dpm_2",
+    "dpm_2_ancestral",
+    "lms",
+    "dpm_fast",
+    "dpm_adaptive",
+    "dpmpp_2s_ancestral",
+    "dpmpp_sde",
+    "dpmpp_sde_gpu",
+    "dpmpp_2m",
+    "dpmpp_2m_sde",
+    "dpmpp_2m_sde_gpu",
+    "dpmpp_3m_sde",
+    "dpmpp_3m_sde_gpu",
+    "ddpm",
+    "lcm",
+    "ddim",
+    "uni_pc",
+    "uni_pc_bh2"
+  ],
+  "schedulers": [
+    "normal",
+    "karras",
+    "exponential",
+    "sgm_uniform",
+    "simple",
+    "ddim_uniform",
+    "lcm",
+    "turbo"
+  ],
+  "output_formats": [
+    "png",
+    "jpg",
+    "webp"
+  ],
+  "clip_skip_max": 12,
+  "default_lora_count": 5
+}

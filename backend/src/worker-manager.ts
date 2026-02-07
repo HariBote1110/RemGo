@@ -6,6 +6,11 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { GPUState, scheduler } from './scheduler';
+import {
+    buildFooocusTaskArgs,
+    FOOOCUS_ARGS_CONTRACT_VERSION,
+    validateFooocusTaskArgs,
+} from './fooocus-task-args';
 
 interface WorkerProcess {
     process: ChildProcess;
@@ -114,11 +119,21 @@ class WorkerManager {
         try {
             // Ensure args are JSON-serializable by parsing/stringifying
             const safeArgs = JSON.parse(JSON.stringify(taskArgs));
+            const fooocusArgs = buildFooocusTaskArgs(safeArgs);
+            const validation = validateFooocusTaskArgs(fooocusArgs);
+            if (!validation.ok) {
+                throw new Error(`Invalid fooocus_args: ${validation.reason}`);
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task_id: taskId, args: safeArgs }),
+                body: JSON.stringify({
+                    task_id: taskId,
+                    args: safeArgs,
+                    fooocus_args: fooocusArgs,
+                    fooocus_args_contract_version: FOOOCUS_ARGS_CONTRACT_VERSION,
+                }),
             });
 
             return await response.json();

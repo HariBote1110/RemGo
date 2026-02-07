@@ -57,6 +57,8 @@ print(f"[Worker {WORKER_GPU_ID}] Worker thread started")
 class WorkerHandler(BaseHTTPRequestHandler):
     # Class-level storage for task progress
     task_progress = {}
+    FOOOCUS_ARGS_CONTRACT_VERSION = 1
+    FOOOCUS_ARGS_EXPECTED_LENGTH = 152
     
     def log_message(self, format, *args):
         # Suppress default logging
@@ -68,6 +70,28 @@ class WorkerHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data, cls=EnumEncoder).encode('utf-8'))
+
+    @classmethod
+    def validate_fooocus_args(cls, value):
+        if not isinstance(value, list):
+            return False, 'fooocus_args must be a list'
+        if len(value) != cls.FOOOCUS_ARGS_EXPECTED_LENGTH:
+            return False, f'fooocus_args length mismatch: got {len(value)}, expected {cls.FOOOCUS_ARGS_EXPECTED_LENGTH}'
+        if not isinstance(value[0], bool):
+            return False, 'fooocus_args[0] must be bool'
+        if not isinstance(value[1], str):
+            return False, 'fooocus_args[1] must be str'
+        if not isinstance(value[2], str):
+            return False, 'fooocus_args[2] must be str'
+        if not isinstance(value[3], list) or not all(isinstance(x, str) for x in value[3]):
+            return False, 'fooocus_args[3] must be list[str]'
+        if not isinstance(value[6], (int, float)):
+            return False, 'fooocus_args[6] must be number'
+        if not isinstance(value[8], (int, float)):
+            return False, 'fooocus_args[8] must be number'
+        if not isinstance(value[9], bool):
+            return False, 'fooocus_args[9] must be bool'
+        return True, ''
     
     @staticmethod
     def encode_preview_image(image_data):
@@ -126,6 +150,8 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 data = json.loads(body.decode('utf-8'))
                 task_id = data.get('task_id', str(int(time.time() * 1000)))
                 task_args = data.get('args', {})
+                fooocus_args = data.get('fooocus_args')
+                fooocus_args_contract_version = data.get('fooocus_args_contract_version')
                 
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task ID = {task_id}")
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Building task args...")
@@ -139,8 +165,20 @@ class WorkerHandler(BaseHTTPRequestHandler):
                     'results': []
                 }
                 
-                # Build task args from request
-                args = self.build_task_args(task_args)
+                # Use prebuilt positional args from TypeScript when available.
+                # Keep Python builder for backward compatibility.
+                if fooocus_args is not None:
+                    if fooocus_args_contract_version != WorkerHandler.FOOOCUS_ARGS_CONTRACT_VERSION:
+                        raise ValueError(
+                            f'fooocus_args contract version mismatch: got {fooocus_args_contract_version}, '
+                            f'expected {WorkerHandler.FOOOCUS_ARGS_CONTRACT_VERSION}'
+                        )
+                    valid, reason = WorkerHandler.validate_fooocus_args(fooocus_args)
+                    if not valid:
+                        raise ValueError(f'Invalid fooocus_args: {reason}')
+                    args = fooocus_args
+                else:
+                    args = self.build_task_args(task_args)
                 
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Args built, creating AsyncTask...")
                 

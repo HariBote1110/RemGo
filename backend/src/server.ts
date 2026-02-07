@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { scheduler } from './scheduler';
 import { workerManager } from './worker-manager';
+import { loadSettings } from './settings-loader';
 
 const rootPath = path.join(__dirname, '../..');
 const outputsPath = path.join(rootPath, 'outputs');
@@ -63,81 +64,9 @@ interface GenerateRequestBody {
 
 const activeTasks = new Map<string, TaskStatus>();
 
-// Load settings from Python config
-function loadSettings(): any {
-    // Read available models from models directory
-    const checkpointsPath = path.join(rootPath, 'models', 'checkpoints');
-    const lorasPath = path.join(rootPath, 'models', 'loras');
-    const vaesPath = path.join(rootPath, 'models', 'vae');
-    const presetsPath = path.join(rootPath, 'presets');
-    const stylesPath = path.join(rootPath, 'sdxl_styles');
-
-    const models = fs.existsSync(checkpointsPath)
-        ? fs.readdirSync(checkpointsPath).filter(f => f.endsWith('.safetensors'))
-        : [];
-
-    const loras = fs.existsSync(lorasPath)
-        ? fs.readdirSync(lorasPath).filter(f => f.endsWith('.safetensors'))
-        : [];
-
-    const vaes = fs.existsSync(vaesPath)
-        ? fs.readdirSync(vaesPath).filter(f => f.endsWith('.safetensors'))
-        : [];
-
-    const presets = fs.existsSync(presetsPath)
-        ? fs.readdirSync(presetsPath)
-            .filter(f => f.endsWith('.json') && !f.startsWith('.'))
-            .map(f => f.replace('.json', ''))
-        : ['default'];
-
-    // Load styles from all JSON files in sdxl_styles directory
-    let styles: string[] = [];
-    if (fs.existsSync(stylesPath)) {
-        const styleFiles = fs.readdirSync(stylesPath).filter(f => f.endsWith('.json'));
-        for (const file of styleFiles) {
-            try {
-                const content = fs.readFileSync(path.join(stylesPath, file), 'utf-8');
-                const styleData = JSON.parse(content);
-                if (Array.isArray(styleData)) {
-                    styles = styles.concat(styleData.map((s: any) => s.name).filter(Boolean));
-                }
-            } catch (e) {
-                // Ignore invalid JSON files
-            }
-        }
-    }
-    // Add default styles if none found
-    if (styles.length === 0) {
-        styles = ['Fooocus V2', 'Fooocus Enhance', 'Fooocus Sharp'];
-    }
-
-    return {
-        models,
-        loras,
-        vaes: ['Default (model)', ...vaes],
-        presets,
-        styles,
-        aspect_ratios: ['704×1408', '704×1344', '768×1344', '768×1280', '832×1216', '832×1152',
-            '896×1152', '896×1088', '960×1088', '960×1024', '1024×1024', '1024×960',
-            '1088×960', '1088×896', '1152×896', '1152×832', '1216×832', '1280×768',
-            '1344×768', '1344×704', '1408×704'],
-        performance_options: ['Speed', 'Quality', 'Extreme Speed'],
-        samplers: ['euler', 'euler_ancestral', 'heun', 'dpm_2', 'dpm_2_ancestral',
-            'lms', 'dpm_fast', 'dpm_adaptive', 'dpmpp_2s_ancestral', 'dpmpp_sde',
-            'dpmpp_sde_gpu', 'dpmpp_2m', 'dpmpp_2m_sde', 'dpmpp_2m_sde_gpu',
-            'dpmpp_3m_sde', 'dpmpp_3m_sde_gpu', 'ddpm', 'lcm', 'ddim', 'uni_pc',
-            'uni_pc_bh2'],
-        schedulers: ['normal', 'karras', 'exponential', 'sgm_uniform', 'simple',
-            'ddim_uniform', 'lcm', 'turbo'],
-        output_formats: ['png', 'jpg', 'webp'],
-        clip_skip_max: 12,
-        default_lora_count: 5,
-    };
-}
-
 // Routes
 app.get('/settings', async () => {
-    return loadSettings();
+    return loadSettings(rootPath);
 });
 
 app.get('/gpus', async () => {

@@ -1,0 +1,21 @@
+{
+  "prompt": "a red fox in snow",
+  "negative_prompt": "low quality",
+  "style_selections": ["Fooocus V2", "Fooocus Sharp"],
+  "performance_selection": "Quality",
+  "aspect_ratios_selection": "1024×1024",
+  "image_number": 2,
+  "image_seed": 42,
+  "seed_random": false,
+  "image_sharpness": 1.7,
+  "guidance_scale": 5.5,
+  "base_model_name": "model.safetensors",
+  "refiner_model_name": "None",
+  "refiner_switch": 0.6,
+  "sampler_name": "dpmpp_2m_sde_gpu",
+  "scheduler_name": "karras",
+  "vae_name": "Default (model)",
+  "output_format": "png",
+  "clip_skip": 2,
+  "loras": [[true, "foo.safetensors", 0.9], [false, "None", 1.0]]
+}
