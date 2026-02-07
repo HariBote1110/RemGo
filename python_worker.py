@@ -7,7 +7,9 @@ import sys
 import json
 import time
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+import http.server
 from enum import Enum
 
 
@@ -53,6 +55,9 @@ print(f"[Worker {WORKER_GPU_ID}] Worker thread started")
 
 
 class WorkerHandler(BaseHTTPRequestHandler):
+    # Class-level storage for task progress
+    task_progress = {}
+    
     def log_message(self, format, *args):
         # Suppress default logging
         pass
@@ -60,12 +65,54 @@ class WorkerHandler(BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data, cls=EnumEncoder).encode('utf-8'))
+    
+    @staticmethod
+    def encode_preview_image(image_data):
+        """Encode preview image to base64 JPEG."""
+        import base64
+        import io
+        from PIL import Image
+        import numpy as np
+        
+        try:
+            if image_data is None:
+                return None
+            
+            # Convert numpy array to PIL Image
+            if isinstance(image_data, np.ndarray):
+                if image_data.dtype == np.float32 or image_data.dtype == np.float64:
+                    image_data = (image_data * 255).astype(np.uint8)
+                image_data = Image.fromarray(image_data)
+            
+            if isinstance(image_data, Image.Image):
+                buffered = io.BytesIO()
+                image_data.save(buffered, format="JPEG", quality=50)
+                return base64.b64encode(buffered.getvalue()).decode("utf-8")
+        except Exception as e:
+            print(f"[Worker {WORKER_GPU_ID}] Preview encode error: {e}")
+        
+        return None
     
     def do_GET(self):
         if self.path == '/health':
             self.send_json({'status': 'ok', 'gpu': WORKER_GPU_ID})
+        elif self.path.startswith('/progress/'):
+            # Progress endpoint for polling
+            task_id = self.path.split('/progress/')[-1]
+            progress = WorkerHandler.task_progress.get(task_id, {
+                'percentage': 0,
+                'statusText': 'Unknown',
+                'finished': False,
+                'preview': None,
+                'results': []
+            })
+            self.send_json(progress)
+        elif self.path == '/progress':
+            # Return all active task progress
+            self.send_json(WorkerHandler.task_progress)
         else:
             self.send_json({'error': 'Not found'}, 404)
     
@@ -83,6 +130,15 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task ID = {task_id}")
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Building task args...")
                 
+                # Initialize progress tracking
+                WorkerHandler.task_progress[task_id] = {
+                    'percentage': 0,
+                    'statusText': 'Starting...',
+                    'finished': False,
+                    'preview': None,
+                    'results': []
+                }
+                
                 # Build task args from request
                 args = self.build_task_args(task_args)
                 
@@ -99,13 +155,25 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task added, waiting for completion...")
                 
-                # Wait for completion
+                # Wait for completion with progress tracking
                 results = []
                 while True:
                     if len(task.yields) > 0:
                         flag, product = task.yields.pop(0)
                         print(f"[Worker {WORKER_GPU_ID}] DEBUG: Yield flag = {flag}")
-                        if flag == 'finish':
+                        
+                        if flag == 'preview':
+                            # Handle preview/progress updates
+                            percentage, title, image = product
+                            preview_b64 = self.encode_preview_image(image)
+                            WorkerHandler.task_progress[task_id] = {
+                                'percentage': percentage,
+                                'statusText': title,
+                                'finished': False,
+                                'preview': preview_b64,
+                                'results': []
+                            }
+                        elif flag == 'finish':
                             results = list(product)
                             break
                         elif flag == 'results':
@@ -126,6 +194,15 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Processed results = {processed_results}")
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Sending JSON response...")
+                
+                # Update final progress
+                WorkerHandler.task_progress[task_id] = {
+                    'percentage': 100,
+                    'statusText': 'Finished',
+                    'finished': True,
+                    'preview': None,
+                    'results': processed_results
+                }
                 
                 response_data = {
                     'success': True,
@@ -150,6 +227,12 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 self.send_json(response_data)
                 print(f"[Worker {WORKER_GPU_ID}] Completed task {task_id}")
                 
+                # Clean up progress after a short delay
+                def cleanup():
+                    time.sleep(60)
+                    WorkerHandler.task_progress.pop(task_id, None)
+                threading.Thread(target=cleanup, daemon=True).start()
+                
             except Exception as e:
                 import traceback
                 print(f"[Worker {WORKER_GPU_ID}] ERROR: {e}")
@@ -160,6 +243,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 }, 500)
         else:
             self.send_json({'error': 'Not found'}, 404)
+
     
     def build_task_args(self, request):
         """Build AsyncTask args from request body."""
@@ -270,8 +354,13 @@ class WorkerHandler(BaseHTTPRequestHandler):
         return args
 
 
+class ThreadingHTTPServer(ThreadingMixIn, http.server.HTTPServer):
+    """Handle requests in a separate thread."""
+    daemon_threads = True
+
+
 def run_server():
-    server = HTTPServer(('127.0.0.1', WORKER_PORT), WorkerHandler)
+    server = ThreadingHTTPServer(('127.0.0.1', WORKER_PORT), WorkerHandler)
     print(f"[Worker {WORKER_GPU_ID}] Ready on port {WORKER_PORT}")
     server.serve_forever()
 

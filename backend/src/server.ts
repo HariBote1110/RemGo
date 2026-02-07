@@ -49,6 +49,7 @@ interface TaskStatus {
     results: string[];
     finished: boolean;
     gpuDevice?: number;
+    preview?: string | null; // Base64 encoded preview image
 }
 
 interface GenerateRequestBody {
@@ -153,6 +154,59 @@ app.get('/gpus', async () => {
     };
 });
 
+// Poll progress from Python workers and broadcast to WebSocket clients
+function startProgressPolling(taskId: string, assignments: { gpu: GPUState; imageCount: number }[]): ReturnType<typeof setInterval> {
+    const pollInterval = 500; // Poll every 500ms
+
+    console.log(`[ProgressPoll] Starting polling for task ${taskId} with ${assignments.length} GPU(s)`);
+
+    return setInterval(async () => {
+        const status = activeTasks.get(taskId);
+        if (!status || status.finished) {
+            return;
+        }
+
+        // Poll progress from each GPU worker
+        for (const assignment of assignments) {
+            const subTaskId = `${taskId}_${assignments.indexOf(assignment)}`;
+            const url = `http://127.0.0.1:${assignment.gpu.port}/progress/${subTaskId}`;
+
+            try {
+                const response = await fetch(url);
+                if (response.ok) {
+                    const progress = await response.json() as {
+                        percentage: number;
+                        statusText: string;
+                        finished: boolean;
+                        preview: string | null;
+                        results: string[];
+                    };
+
+                    console.log(`[ProgressPoll] Task ${subTaskId}: ${progress.percentage}% - ${progress.statusText} (preview: ${progress.preview ? 'yes' : 'no'})`);
+
+                    // Update task status with the latest progress
+                    if (progress.percentage > status.percentage || progress.preview) {
+                        status.percentage = Math.max(status.percentage, progress.percentage);
+                        status.statusText = progress.statusText || status.statusText;
+                        status.preview = progress.preview;
+
+                        // Broadcast progress to WebSocket clients
+                        broadcastProgress(taskId, status);
+                    }
+                } else {
+                    console.log(`[ProgressPoll] Failed to fetch progress from ${url}: ${response.status}`);
+                }
+            } catch (e) {
+                console.log(`[ProgressPoll] Error polling ${url}:`, e);
+            }
+        }
+    }, pollInterval);
+}
+
+// Import GPUState type from scheduler
+import type { GPUState } from './scheduler';
+
+
 app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
     const taskId = String(Date.now());
     const body = request.body;
@@ -196,6 +250,9 @@ app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
             baseSeed = Math.floor(Math.random() * 2147483647);
         }
 
+        // Start progress polling for this task
+        const pollIntervalId = startProgressPolling(taskId, assignments);
+
         const subTaskPromises = assignments.map((assignment, idx) => {
             const subTaskBody = {
                 ...body,
@@ -231,6 +288,9 @@ app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
         const allResults: string[] = [];
 
         Promise.all(subTaskPromises).then(results => {
+            // Stop progress polling
+            clearInterval(pollIntervalId);
+
             const status = activeTasks.get(taskId)!;
 
             results.forEach((result, idx) => {
@@ -245,6 +305,7 @@ app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
             status.finished = true;
             status.percentage = 100;
             status.statusText = `Finished (${allResults.length}/${totalImages} images)`;
+            status.preview = null; // Clear preview on finish
             broadcastProgress(taskId, status);
         });
 
@@ -268,7 +329,7 @@ app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {
 });
 
 app.get('/history', async () => {
-    // Simple file-based history implementation
+    // Scans both flat files and date subdirectories in outputs
     try {
         if (!fs.existsSync(outputsPath)) {
             return [];
@@ -277,38 +338,48 @@ app.get('/history', async () => {
         const history: any[] = [];
         const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
 
-        // Iterate over date directories (e.g., 2026-02-07)
         for (const entry of entries) {
-            if (entry.isDirectory() && entry.name.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            // Check files directly in outputs directory
+            if (entry.isFile() && (entry.name.endsWith('.png') || entry.name.endsWith('.jpg') || entry.name.endsWith('.jpeg') || entry.name.endsWith('.webp'))) {
+                const filePath = path.join(outputsPath, entry.name);
+                const stats = fs.statSync(filePath);
+                history.push({
+                    filename: entry.name,
+                    path: entry.name,
+                    created: stats.mtimeMs / 1000, // Convert to seconds for frontend
+                    metadata: null
+                });
+            }
+            // Also check date subdirectories (e.g., 2026-02-07)
+            else if (entry.isDirectory() && entry.name.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 const dateDir = path.join(outputsPath, entry.name);
                 const files = fs.readdirSync(dateDir);
 
                 for (const file of files) {
-                    if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg')) {
-                        // Create history item
-                        // Path should be relative to outputs path for frontend
-                        // e.g., "2026-02-07/image_123.png"
+                    if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.webp')) {
                         const relPath = `${entry.name}/${file}`;
+                        const filePath = path.join(dateDir, file);
+                        const stats = fs.statSync(filePath);
                         history.push({
+                            filename: file,
                             path: relPath,
-                            url: `/images/${relPath}`,
-                            name: file,
-                            date: entry.name,
-                            timestamp: fs.statSync(path.join(dateDir, file)).mtimeMs
+                            created: stats.mtimeMs / 1000,
+                            metadata: null
                         });
                     }
                 }
             }
         }
 
-        // Sort by timestamp descending and limit to 100
-        return history.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+        // Sort by creation time descending and limit to 500
+        return history.sort((a, b) => b.created - a.created).slice(0, 500);
 
     } catch (error) {
         console.error('[History] Error scanning outputs:', error);
         return [];
     }
 });
+
 
 // WebSocket connections for real-time updates
 const wsConnections = new Set<any>();
@@ -346,11 +417,15 @@ function broadcastProgress(taskId: string, status: TaskStatus) {
         task_id: taskId,
         ...status,
     });
-    wsConnections.forEach((ws) => {
+    wsConnections.forEach((socketStream: any) => {
         try {
-            ws.send(message);
+            // FastifyのSocketStreamでは、実際のWebSocketはsocket.socketにある
+            const ws = socketStream.socket || socketStream;
+            if (typeof ws.send === 'function') {
+                ws.send(message);
+            }
         } catch (e) {
-            // Ignore errors
+            // Ignore send errors
         }
     });
 }
