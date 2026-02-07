@@ -12,8 +12,17 @@ import subprocess
 import pickle
 from dataclasses import dataclass
 from typing import Dict, Optional, Any, List
+from enum import Enum
 import time
 import traceback
+
+
+class EnumEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        return super().default(obj)
 
 
 @dataclass
@@ -233,7 +242,7 @@ gpu_worker_process_main({gpu_device}, {port})
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect(('127.0.0.1', port))
-            sock.send(json.dumps(data).encode('utf-8') + b'__END__')
+            sock.send(json.dumps(data, cls=EnumEncoder).encode('utf-8') + b'__END__')
             
             # Receive response
             response = b''
