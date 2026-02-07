@@ -63,6 +63,29 @@ interface GenerateRequestBody {
 }
 
 const activeTasks = new Map<string, TaskStatus>();
+const generateRequestBodySchema = {
+    type: 'object',
+    properties: {
+        prompt: { type: 'string' },
+        negative_prompt: { type: 'string' },
+        image_number: { type: 'integer', minimum: 1 },
+        image_seed: { type: 'integer' },
+        seed_random: { type: 'boolean' },
+        style_selections: {
+            type: 'array',
+            items: { type: 'string' },
+        },
+        loras: {
+            type: 'array',
+            items: {
+                type: 'array',
+                minItems: 3,
+                maxItems: 3,
+            },
+        },
+    },
+    additionalProperties: true,
+} as const;
 
 // Routes
 app.get('/settings', async () => {
@@ -136,7 +159,11 @@ function startProgressPolling(taskId: string, assignments: { gpu: GPUState; imag
 import type { GPUState } from './scheduler';
 
 
-app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
+app.post<{ Body: GenerateRequestBody }>('/generate', {
+    schema: {
+        body: generateRequestBodySchema,
+    },
+}, async (request) => {
     const taskId = String(Date.now());
     const body = request.body;
     const totalImages = body.image_number || 1;

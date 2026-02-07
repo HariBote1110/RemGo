@@ -54,10 +54,10 @@
 7. Split Python package into `core_inference` and `legacy_ui` folders.
 
 ## Implemented in This Change
+- Completed backlog item 1.
 - Completed backlog item 2.
 - Added TS task argument builder: `backend/src/fooocus-task-args.ts`.
 - Updated worker manager to send prebuilt args: `backend/src/worker-manager.ts`.
 - Updated Python worker to consume `fooocus_args` with fallback compatibility: `python_worker.py`.
-
-## Next Immediate Step
-- Implement backlog item 1 by adding a worker contract version field and strict validation for `fooocus_args` length/types on both sides.
+- Added worker contract version field and strict validation for `fooocus_args` length/types on both sides.
+- Added contract documentation: `docs/worker-contract.md`.
