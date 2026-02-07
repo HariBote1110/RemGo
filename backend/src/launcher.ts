@@ -152,7 +152,7 @@ async function main(): Promise<void> {
     ensureNodeModules(path.join(rootPath, 'frontend'));
 
     const backend = startBackend(rootPath);
-    await waitForBackendReady(45000);
+    await waitForBackendReady(180000);
     const frontend = startFrontend(rootPath);
 
     const shutdown = (): void => {

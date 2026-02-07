@@ -307,7 +307,7 @@ class ThreadingHTTPServer(ThreadingMixIn, http.server.HTTPServer):
 
 
 def _rpc_write(message):
-    sys.stdout.write(f"{json.dumps(message, cls=EnumEncoder)}\\n")
+    sys.stdout.write(f"{json.dumps(message, cls=EnumEncoder)}\n")
     sys.stdout.flush()
 
 
