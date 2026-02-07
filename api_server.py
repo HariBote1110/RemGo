@@ -237,15 +237,65 @@ async def generate_image(request: TaskRequest):
     active_tasks[task_id] = TaskStatus()
     
     task_args = build_async_task_args(request)
+    
+    scheduler = get_scheduler()
+    if scheduler.enabled:
+        # Multi-GPU mode: dispatch to GPU worker
+        from modules.gpu_worker import submit_task, get_manager
+        from modules.gpu_scheduler import mark_gpu_busy
+        
+        gpu_device = scheduler.select_gpu()
+        if gpu_device is not None:
+            mark_gpu_busy(gpu_device, True)
+            active_tasks[task_id].gpu_device = gpu_device
+            
+            success = submit_task(gpu_device, task_id, task_args)
+            if success:
+                asyncio.create_task(monitor_gpu_task(task_id, gpu_device))
+                return {"task_id": task_id, "status": "Started", "gpu": gpu_device}
+        
+        # Fallback to single-GPU mode
+        print(f"[API] Multi-GPU dispatch failed, falling back to single-GPU mode")
+    
+    # Single-GPU mode
     task = worker.AsyncTask(args=task_args)
-    task.task_id = task_id # Attach our ID
-    
+    task.task_id = task_id
     worker.async_tasks.append(task)
-    
-    
     asyncio.create_task(monitor_task(task))
     
     return {"task_id": task_id, "status": "Started"}
+
+
+async def monitor_gpu_task(task_id: str, gpu_device: int):
+    """Monitor a task running on a GPU worker process."""
+    from modules.gpu_worker import get_manager
+    from modules.gpu_scheduler import mark_gpu_busy
+    
+    status = active_tasks.get(task_id)
+    if not status:
+        return
+    
+    manager = get_manager()
+    
+    # Poll for result
+    while not status.finished:
+        result = manager.get_result(timeout=0.1)
+        if result and result.task_id == task_id:
+            if result.success:
+                status.results = [process_path(p) for p in result.results]
+                status.finished = True
+                status.percentage = 100
+                status.status_text = "Finished"
+            else:
+                status.finished = True
+                status.status_text = f"Error: {result.error}"
+            
+            mark_gpu_busy(gpu_device, False)
+            return
+        
+        await asyncio.sleep(0.1)
+    
+    mark_gpu_busy(gpu_device, False)
 
 @app.post("/stop")
 async def stop_generation():
@@ -449,6 +499,15 @@ if __name__ == "__main__":
         init_cache(config.model_filenames, config.paths_checkpoints, config.lora_filenames, config.paths_loras)
         
         from modules.sdxl_styles import legal_style_names
+        
+        # Initialize GPU workers if multi-GPU mode is enabled
+        scheduler = get_scheduler()
+        if scheduler.enabled:
+            print(f"[API] Multi-GPU mode enabled with {scheduler.get_gpu_count()} GPUs")
+            from modules.gpu_worker import start_gpu_workers
+            start_gpu_workers(scheduler.gpus)
+        else:
+            print("[API] Single-GPU mode")
         
         print(f"Starting RemGo API Server on http://0.0.0.0:8888")
         run_api_server()
