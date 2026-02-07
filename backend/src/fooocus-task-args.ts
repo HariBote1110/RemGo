@@ -3,7 +3,7 @@
  * Python worker still keeps a fallback parser for backward compatibility.
  */
 
-const DEFAULT_STYLES = ['Fooocus V2', 'Fooocus Enhance', 'Fooocus Sharp'];
+const DEFAULT_STYLES: string[] = [];
 const DEFAULT_UOV_METHOD = 'Disabled';
 const DEFAULT_REFINER_SWAP_METHOD = 'joint';
 const DEFAULT_IP_TYPE = 'ImagePrompt';
@@ -36,7 +36,7 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
         return fallback;
     }
     const items = value.filter((item): item is string => typeof item === 'string');
-    return items.length > 0 ? items : fallback;
+    return items;
 }
 
 function normalizeLoras(value: unknown): Array<[boolean, string, number]> {

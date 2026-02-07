@@ -155,6 +155,33 @@ class WorkerManager {
         }
         this.workers.clear();
     }
+
+    async stopGeneration(): Promise<{ requested: number; success: number }> {
+        let requested = 0;
+        let success = 0;
+
+        for (const [device, worker] of this.workers) {
+            if (!worker.ready) {
+                continue;
+            }
+
+            requested++;
+            const url = `http://127.0.0.1:${worker.gpu.port}/stop`;
+
+            try {
+                const response = await fetch(url, { method: 'POST' });
+                if (response.ok) {
+                    success++;
+                } else {
+                    console.warn(`[WorkerManager] Stop failed for worker ${device}: ${response.status}`);
+                }
+            } catch (error) {
+                console.warn(`[WorkerManager] Stop request error for worker ${device}:`, error);
+            }
+        }
+
+        return { requested, success };
+    }
 }
 
 export const workerManager = new WorkerManager();

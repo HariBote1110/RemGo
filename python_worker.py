@@ -57,6 +57,7 @@ print(f"[Worker {WORKER_GPU_ID}] Worker thread started")
 class WorkerHandler(BaseHTTPRequestHandler):
     # Class-level storage for task progress
     task_progress = {}
+    active_tasks = {}
     FOOOCUS_ARGS_CONTRACT_VERSION = 1
     FOOOCUS_ARGS_EXPECTED_LENGTH = 152
     
@@ -144,6 +145,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
         if self.path == '/generate':
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length)
+            task_id = None
             
             try:
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Received request, parsing JSON...")
@@ -190,6 +192,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 
                 # Add to worker queue
                 worker.async_tasks.append(task)
+                WorkerHandler.active_tasks[task_id] = task
                 
                 print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task added, waiting for completion...")
                 
@@ -269,16 +272,41 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 def cleanup():
                     time.sleep(60)
                     WorkerHandler.task_progress.pop(task_id, None)
+                    WorkerHandler.active_tasks.pop(task_id, None)
                 threading.Thread(target=cleanup, daemon=True).start()
                 
             except Exception as e:
                 import traceback
                 print(f"[Worker {WORKER_GPU_ID}] ERROR: {e}")
                 traceback.print_exc()
+                if task_id is not None:
+                    WorkerHandler.active_tasks.pop(task_id, None)
                 self.send_json({
                     'success': False,
                     'error': str(e)
                 }, 500)
+        elif self.path == '/stop':
+            stopped = 0
+
+            # Stop active tasks.
+            for _, task in list(WorkerHandler.active_tasks.items()):
+                try:
+                    task.last_stop = 'stop'
+                    stopped += 1
+                except Exception:
+                    pass
+
+            # Also stop queued tasks.
+            for task in list(worker.async_tasks):
+                try:
+                    task.last_stop = 'stop'
+                except Exception:
+                    pass
+
+            self.send_json({
+                'success': True,
+                'stopped_tasks': stopped
+            })
         else:
             self.send_json({'error': 'Not found'}, 404)
 
@@ -290,7 +318,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
         # Default values
         prompt = request.get('prompt', '')
         negative_prompt = request.get('negative_prompt', '')
-        style_selections = request.get('style_selections', ['Fooocus V2', 'Fooocus Enhance', 'Fooocus Sharp'])
+        style_selections = request.get('style_selections', [])
         performance = request.get('performance_selection', 'Speed')
         aspect_ratio = request.get('aspect_ratios_selection', '1024×1024')
         image_number = request.get('image_number', 1)

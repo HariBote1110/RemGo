@@ -106,6 +106,30 @@ app.get('/gpus', async () => {
     };
 });
 
+app.get<{ Params: { name: string } }>('/presets/:name', async (request, reply) => {
+    const presetsPath = path.join(rootPath, 'presets');
+    const requestedName = request.params.name;
+
+    // Prevent path traversal and limit to preset basename.
+    if (!/^[a-zA-Z0-9._-]+$/.test(requestedName)) {
+        return reply.code(400).send({ error: 'Invalid preset name' });
+    }
+
+    const presetPath = path.join(presetsPath, `${requestedName}.json`);
+    if (!fs.existsSync(presetPath)) {
+        return reply.code(404).send({ error: 'Preset not found' });
+    }
+
+    try {
+        const content = fs.readFileSync(presetPath, 'utf-8');
+        const json = JSON.parse(content);
+        return json;
+    } catch (error) {
+        console.error('[Preset] Failed to load preset:', error);
+        return reply.code(500).send({ error: 'Failed to load preset' });
+    }
+});
+
 // Poll progress from Python workers and broadcast to WebSocket clients
 function startProgressPolling(taskId: string, assignments: { gpu: GPUState; imageCount: number }[]): ReturnType<typeof setInterval> {
     const pollInterval = 500; // Poll every 500ms
@@ -274,6 +298,15 @@ app.post<{ Body: GenerateRequestBody }>('/generate', {
     }
 
     return { task_id: taskId, status: 'Error', error: 'Multi-GPU not enabled or no images requested' };
+});
+
+app.post('/stop', async () => {
+    const result = await workerManager.stopGeneration();
+    return {
+        status: 'Stop requested',
+        workers_requested: result.requested,
+        workers_acknowledged: result.success,
+    };
 });
 
 app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {
