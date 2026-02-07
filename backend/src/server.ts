@@ -361,7 +361,17 @@ app.get('/history', async () => {
         }
 
         // Sort by creation time descending and limit to 500
-        return history.sort((a, b) => b.created - a.created).slice(0, 500);
+        const limitedHistory = history.sort((a, b) => b.created - a.created).slice(0, 500);
+
+        // Enrich history with metadata from Python SQLite store.
+        const filenames = limitedHistory.map((item) => item.filename);
+        const metadataMap = await workerManager.fetchMetadataBatch(filenames);
+        for (const item of limitedHistory) {
+            const metadata = metadataMap[item.filename];
+            item.metadata = metadata ?? null;
+        }
+
+        return limitedHistory;
 
     } catch (error) {
         console.error('[History] Error scanning outputs:', error);

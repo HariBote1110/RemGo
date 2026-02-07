@@ -182,6 +182,44 @@ class WorkerManager {
 
         return { requested, success };
     }
+
+    async fetchMetadataBatch(filenames: string[]): Promise<Record<string, unknown>> {
+        if (filenames.length === 0) {
+            return {};
+        }
+
+        for (const [, worker] of this.workers) {
+            if (!worker.ready) {
+                continue;
+            }
+
+            const url = `http://127.0.0.1:${worker.gpu.port}/metadata_batch`;
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filenames }),
+                });
+
+                if (!response.ok) {
+                    continue;
+                }
+
+                const data = await response.json() as {
+                    success?: boolean;
+                    metadata?: Record<string, unknown>;
+                };
+
+                if (data.success && data.metadata && typeof data.metadata === 'object') {
+                    return data.metadata;
+                }
+            } catch (error) {
+                console.warn('[WorkerManager] metadata_batch request failed:', error);
+            }
+        }
+
+        return {};
+    }
 }
 
 export const workerManager = new WorkerManager();

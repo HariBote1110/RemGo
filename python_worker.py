@@ -7,6 +7,7 @@ import sys
 import json
 import time
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import http.server
@@ -138,6 +139,20 @@ class WorkerHandler(BaseHTTPRequestHandler):
         elif self.path == '/progress':
             # Return all active task progress
             self.send_json(WorkerHandler.task_progress)
+        elif self.path.startswith('/metadata'):
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+            filename = query.get('filename', [None])[0]
+            if not filename:
+                self.send_json({'success': False, 'error': 'filename is required'}, 400)
+                return
+
+            try:
+                from modules import metadata_db
+                metadata = metadata_db.get_metadata(os.path.basename(filename))
+                self.send_json({'success': True, 'metadata': metadata})
+            except Exception as e:
+                self.send_json({'success': False, 'error': str(e)}, 500)
         else:
             self.send_json({'error': 'Not found'}, 404)
     
@@ -307,6 +322,28 @@ class WorkerHandler(BaseHTTPRequestHandler):
                 'success': True,
                 'stopped_tasks': stopped
             })
+        elif self.path == '/metadata_batch':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+
+            try:
+                data = json.loads(body.decode('utf-8')) if body else {}
+                filenames = data.get('filenames', [])
+                if not isinstance(filenames, list):
+                    self.send_json({'success': False, 'error': 'filenames must be a list'}, 400)
+                    return
+
+                from modules import metadata_db
+                result = {}
+                for filename in filenames:
+                    if not isinstance(filename, str):
+                        continue
+                    base = os.path.basename(filename)
+                    result[base] = metadata_db.get_metadata(base)
+
+                self.send_json({'success': True, 'metadata': result})
+            except Exception as e:
+                self.send_json({'success': False, 'error': str(e)}, 500)
         else:
             self.send_json({'error': 'Not found'}, 404)
 
