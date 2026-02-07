@@ -567,17 +567,9 @@ function App() {
                     <div
                       key={img.path}
                       className="group relative aspect-square bg-white/5 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-premium-accent transition-all"
-                      onClick={async () => {
+                      onClick={() => {
                         setSelectedImage({ url: `${API_BASE}/images/${img.path}`, path: img.path });
-                        setImageMetadata(null);
-                        setLoadingMetadata(true);
-                        try {
-                          const resp = await fetch(`${API_BASE}/history/metadata/${img.path}`);
-                          const data = await resp.json();
-                          setImageMetadata(data.metadata);
-                        } catch (err) {
-                          console.error('Failed to load metadata:', err);
-                        }
+                        setImageMetadata(img.metadata);
                         setLoadingMetadata(false);
                       }}
                     >

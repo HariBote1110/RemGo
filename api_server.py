@@ -246,22 +246,66 @@ async def stop_generation():
 
 @app.get("/history")
 async def get_history():
+    """Get history with metadata from log.html files."""
+    import re
+    import urllib.parse
+    
     history = []
     outputs_dir = os.path.join(root, 'outputs')
-    if os.path.exists(outputs_dir):
-        # Walk through date directories
-        for date_dir in os.listdir(outputs_dir):
-            date_path = os.path.join(outputs_dir, date_dir)
-            if os.path.isdir(date_path):
-                for filename in os.listdir(date_path):
-                    if filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                        filepath = os.path.join(date_dir, filename)
-                        full_path = os.path.join(date_path, filename)
-                        history.append({
-                            "filename": filename,
-                            "path": filepath.replace('\\', '/'), # Relative path for serving
-                            "created": os.path.getctime(full_path)
-                        })
+    
+    if not os.path.exists(outputs_dir):
+        return history
+    
+    # Walk through date directories
+    for date_dir in sorted(os.listdir(outputs_dir), reverse=True):
+        date_path = os.path.join(outputs_dir, date_dir)
+        if not os.path.isdir(date_path):
+            continue
+        
+        log_path = os.path.join(date_path, 'log.html')
+        log_metadata = {}
+        
+        # Parse log.html if exists
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                
+                # Find all to_clipboard calls with metadata
+                # Pattern: div id="filename_png"...to_clipboard('encoded_json')
+                pattern = r'<div id="([^"]+)"[^>]*class="image-container"[^>]*>.*?to_clipboard\(\'([^\']+)\'\)'
+                matches = re.findall(pattern, html_content, re.DOTALL)
+                
+                for div_id, encoded_json in matches:
+                    try:
+                        decoded_json = urllib.parse.unquote(encoded_json)
+                        metadata = json.loads(decoded_json)
+                        # Convert div_id back to filename: 2026-02-07_08-57-21_2647_png -> 2026-02-07_08-57-21_2647.png
+                        filename = div_id.rsplit('_', 1)
+                        if len(filename) == 2:
+                            filename = filename[0] + '.' + filename[1]
+                        else:
+                            filename = div_id
+                        log_metadata[filename] = metadata
+                    except (json.JSONDecodeError, Exception):
+                        pass
+            except Exception:
+                pass
+        
+        # Collect images in this directory
+        for filename in os.listdir(date_path):
+            if filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                filepath = os.path.join(date_dir, filename)
+                full_path = os.path.join(date_path, filename)
+                
+                entry = {
+                    "filename": filename,
+                    "path": filepath.replace('\\', '/'),
+                    "created": os.path.getctime(full_path),
+                    "metadata": log_metadata.get(filename)
+                }
+                history.append(entry)
+    
     # Sort by creation time descending
     history.sort(key=lambda x: x['created'], reverse=True)
     return history
