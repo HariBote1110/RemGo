@@ -73,14 +73,19 @@ function installPythonDependencies(rootPath: string, python: string): void {
 function startBackend(rootPath: string): ChildProcess {
     const backendPath = path.join(rootPath, 'backend');
     const logPath = path.join(rootPath, 'api_server.log');
-    const logFd = fs.openSync(logPath, 'a');
+    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
 
     console.log('[Launcher] Starting backend (Node/TS)...');
-    return spawn(npmCmd, ['run', 'dev'], {
+    const child = spawn(npmCmd, ['run', 'dev'], {
         cwd: backendPath,
-        stdio: ['ignore', logFd, logFd],
+        stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
     });
+
+    child.stdout?.pipe(logStream);
+    child.stderr?.pipe(logStream);
+
+    return child;
 }
 
 function stopChild(child: ChildProcess | null | undefined): void {
