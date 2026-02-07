@@ -2,9 +2,125 @@ import { useState, useEffect, useMemo } from 'react';
 import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
 import { Sparkles, History, Send, Settings2, ChevronDown, ChevronUp, ImagePlus, Square, Search } from 'lucide-react';
+import type { LoraSettings, TaskSettings } from './store/useStore';
 
 const API_HOSTNAME = window.location.hostname;
 const API_BASE = `http://${API_HOSTNAME}:8888`;
+
+function parseMaybeNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function parseStyles(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((v): v is string => typeof v === 'string');
+  }
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  const raw = value.trim();
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const jsonParsed = JSON.parse(raw);
+    if (Array.isArray(jsonParsed)) {
+      return jsonParsed.filter((v): v is string => typeof v === 'string');
+    }
+  } catch {
+    // Fall back to Python-style list parsing.
+  }
+
+  if (raw.startsWith('[') && raw.endsWith(']')) {
+    const inner = raw.slice(1, -1).trim();
+    if (!inner) {
+      return [];
+    }
+    return inner
+      .split(',')
+      .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+  }
+
+  return [raw];
+}
+
+function parseAspectRatio(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const match = value.match(/(\d+)\D+(\d+)/);
+  if (!match) {
+    return null;
+  }
+  return `${match[1]}×${match[2]}`;
+}
+
+function parseLoraEntry(value: unknown): LoraSettings | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parts = value.split(' : ').map((p) => p.trim());
+  if (parts.length === 2) {
+    const weight = parseMaybeNumber(parts[1]);
+    if (weight === null) {
+      return null;
+    }
+    return {
+      enabled: true,
+      name: parts[0],
+      weight,
+    };
+  }
+
+  if (parts.length === 3) {
+    const enabled = parts[0].toLowerCase() === 'true';
+    const weight = parseMaybeNumber(parts[2]);
+    if (weight === null) {
+      return null;
+    }
+    return {
+      enabled,
+      name: parts[1],
+      weight,
+    };
+  }
+
+  return null;
+}
+
+function parseLorasFromMetadata(metadata: Record<string, unknown>): LoraSettings[] {
+  const loraKeys = Object.keys(metadata)
+    .filter((k) => k.startsWith('lora_combined_'))
+    .sort((a, b) => {
+      const aNum = Number(a.replace('lora_combined_', ''));
+      const bNum = Number(b.replace('lora_combined_', ''));
+      return aNum - bNum;
+    });
+
+  const loras: LoraSettings[] = [];
+  for (const key of loraKeys) {
+    const parsed = parseLoraEntry(metadata[key]);
+    if (!parsed || parsed.name === 'None') {
+      continue;
+    }
+    loras.push(parsed);
+  }
+  return loras;
+}
 
 function App() {
   const { settings, setSettings, activeTasks, availableOptions } = useStore();
@@ -56,6 +172,88 @@ function App() {
     const unselected = availableOptions.styles.filter(style => !selectedSet.has(style));
     return [...selectedAvailableStyles, ...unselected].slice(0, 200);
   }, [availableOptions.styles, selectedAvailableStyles]);
+
+  const applyMetadataToSettings = () => {
+    if (!imageMetadata || typeof imageMetadata !== 'object') {
+      return;
+    }
+
+    const metadata = imageMetadata as Record<string, unknown>;
+    const updates: Partial<TaskSettings> = {};
+
+    if (typeof metadata.prompt === 'string') {
+      updates.prompt = metadata.prompt;
+    }
+    if (typeof metadata.negative_prompt === 'string') {
+      updates.negativePrompt = metadata.negative_prompt;
+    }
+
+    const styles = parseStyles(metadata.styles);
+    if (styles.length > 0) {
+      updates.styleSelections = styles;
+    }
+
+    if (typeof metadata.performance === 'string') {
+      updates.performanceSelection = metadata.performance;
+    }
+
+    const aspectRatio = parseAspectRatio(metadata.resolution);
+    if (aspectRatio) {
+      updates.aspectRatio = aspectRatio;
+    }
+
+    const guidanceScale = parseMaybeNumber(metadata.guidance_scale);
+    if (guidanceScale !== null) {
+      updates.guidanceScale = guidanceScale;
+    }
+
+    const sharpness = parseMaybeNumber(metadata.sharpness);
+    if (sharpness !== null) {
+      updates.imageSharpness = sharpness;
+    }
+
+    if (typeof metadata.base_model === 'string') {
+      updates.baseModelName = metadata.base_model;
+    }
+    if (typeof metadata.refiner_model === 'string') {
+      updates.refinerModelName = metadata.refiner_model;
+    }
+
+    const refinerSwitch = parseMaybeNumber(metadata.refiner_switch);
+    if (refinerSwitch !== null) {
+      updates.refinerSwitch = refinerSwitch;
+    }
+
+    if (typeof metadata.sampler === 'string') {
+      updates.samplerName = metadata.sampler;
+    }
+    if (typeof metadata.scheduler === 'string') {
+      updates.schedulerName = metadata.scheduler;
+    }
+    if (typeof metadata.vae === 'string') {
+      updates.vaeName = metadata.vae;
+    }
+
+    const seed = parseMaybeNumber(metadata.seed);
+    if (seed !== null) {
+      updates.seed = Math.trunc(seed);
+      updates.seedRandom = false;
+    }
+
+    const clipSkip = parseMaybeNumber(metadata.clip_skip);
+    if (clipSkip !== null) {
+      updates.clipSkip = Math.trunc(clipSkip);
+    }
+
+    const loras = parseLorasFromMetadata(metadata);
+    if (loras.length > 0) {
+      updates.loras = loras;
+    }
+
+    setSettings(updates);
+    setActiveTab('generate');
+    setSelectedImage(null);
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -706,6 +904,14 @@ function App() {
                   </div>
                 ) : (
                   <p className="text-xs text-white/40">No metadata found</p>
+                )}
+                {imageMetadata && (
+                  <button
+                    onClick={applyMetadataToSettings}
+                    className="mt-4 w-full py-2 text-xs bg-premium-accent/20 hover:bg-premium-accent/30 border border-premium-accent/40 rounded-lg transition-colors"
+                  >
+                    この設定を再利用
+                  </button>
                 )}
                 <button
                   onClick={() => setSelectedImage(null)}
