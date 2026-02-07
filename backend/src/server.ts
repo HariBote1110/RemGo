@@ -145,11 +145,20 @@ app.post<{ Body: any }>('/generate', async (request) => {
         finished: false,
     });
 
+    // Broadcast initial status
+    broadcastProgress(taskId, activeTasks.get(taskId)!);
+
     if (scheduler.isEnabled()) {
         const gpu = scheduler.selectGPU();
         if (gpu) {
             scheduler.markBusy(gpu.config.device, true);
             activeTasks.get(taskId)!.gpuDevice = gpu.config.device;
+
+            // Update status with GPU assignment
+            const status = activeTasks.get(taskId)!;
+            status.statusText = `Processing on ${gpu.config.name}`;
+            status.percentage = 10;
+            broadcastProgress(taskId, status);
 
             // Submit to worker asynchronously
             workerManager.submitTask(gpu, taskId, request.body)
@@ -160,6 +169,8 @@ app.post<{ Body: any }>('/generate', async (request) => {
                         status.finished = true;
                         status.percentage = 100;
                         status.statusText = result.success ? 'Finished' : `Error: ${result.error}`;
+                        // Broadcast completion with results
+                        broadcastProgress(taskId, status);
                     }
                     scheduler.markBusy(gpu.config.device, false);
                 })
@@ -167,7 +178,9 @@ app.post<{ Body: any }>('/generate', async (request) => {
                     const status = activeTasks.get(taskId);
                     if (status) {
                         status.finished = true;
+                        status.percentage = 100;
                         status.statusText = `Error: ${error.message}`;
+                        broadcastProgress(taskId, status);
                     }
                     scheduler.markBusy(gpu.config.device, false);
                 });

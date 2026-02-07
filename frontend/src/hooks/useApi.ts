@@ -136,16 +136,30 @@ export const useApi = () => {
 
         ws.onmessage = (event) => {
             try {
-                const updates = JSON.parse(event.data);
-                Object.entries(updates).forEach(([taskId, progress]: [string, any]) => {
-                    updateTask(taskId, {
-                        percentage: progress.progress,
-                        status: progress.status,
-                        finished: progress.finished,
-                        results: progress.results,
-                        preview: progress.preview,
+                const data = JSON.parse(event.data);
+                // Handle new message format from Node.js backend
+                if (data.type === 'progress' && data.task_id) {
+                    updateTask(data.task_id, {
+                        percentage: data.percentage,
+                        status: data.statusText,
+                        finished: data.finished,
+                        results: data.results,
+                        preview: data.preview,
                     });
-                });
+                } else {
+                    // Legacy format - iterate over object entries
+                    Object.entries(data).forEach(([taskId, progress]: [string, any]) => {
+                        if (taskId !== 'type') {
+                            updateTask(taskId, {
+                                percentage: progress.progress || progress.percentage,
+                                status: progress.status || progress.statusText,
+                                finished: progress.finished,
+                                results: progress.results,
+                                preview: progress.preview,
+                            });
+                        }
+                    });
+                }
             } catch (err) {
                 console.error('WS parse error:', err);
             }
