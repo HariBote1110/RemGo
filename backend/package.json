@@ -7,7 +7,8 @@
         "build": "tsc",
         "test": "npm run build && node --test dist/tests/*.test.js",
         "start": "node dist/server.js",
-        "dev": "tsx watch src/server.ts"
+        "dev": "tsx watch src/server.ts",
+        "launcher:dev": "tsx src/launcher.ts"
     },
     "dependencies": {
         "fastify": "^4.25.0",

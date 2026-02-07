@@ -16,6 +16,134 @@ interface WorkerProcess {
     process: ChildProcess;
     gpu: GPUState;
     ready: boolean;
+    rpc: WorkerRpcClient;
+}
+
+export interface WorkerProgress {
+    percentage: number;
+    statusText: string;
+    finished: boolean;
+    preview: string | null;
+    results: string[];
+    error?: string;
+}
+
+interface JsonRpcSuccess {
+    jsonrpc: '2.0';
+    id: number;
+    result: unknown;
+}
+
+interface JsonRpcError {
+    jsonrpc: '2.0';
+    id: number;
+    error: {
+        code?: number;
+        message?: string;
+        data?: unknown;
+    };
+}
+
+type JsonRpcResponse = JsonRpcSuccess | JsonRpcError;
+
+class WorkerRpcClient {
+    private nextId = 1;
+    private stdoutBuffer = '';
+    private pending = new Map<number, {
+        resolve: (value: unknown) => void;
+        reject: (error: Error) => void;
+        timeout: ReturnType<typeof setTimeout>;
+    }>();
+    private gpuId: number;
+
+    constructor(private readonly child: ChildProcess, gpuId: number) {
+        this.gpuId = gpuId;
+        this.child.stdout?.setEncoding('utf-8');
+        this.child.stdout?.on('data', (chunk: string) => this.handleStdout(chunk));
+        this.child.on('exit', () => this.closeWithError(new Error('Worker process exited')));
+    }
+
+    private handleStdout(chunk: string): void {
+        this.stdoutBuffer += chunk;
+        const lines = this.stdoutBuffer.split(/\r?\n/);
+        this.stdoutBuffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                continue;
+            }
+
+            let parsed: unknown;
+            try {
+                parsed = JSON.parse(trimmed);
+            } catch {
+                console.log(`[Worker ${this.gpuId}] ${trimmed}`);
+                continue;
+            }
+
+            const message = parsed as Partial<JsonRpcResponse>;
+            if (message.jsonrpc !== '2.0' || typeof message.id !== 'number') {
+                console.log(`[Worker ${this.gpuId}] ${trimmed}`);
+                continue;
+            }
+
+            const pending = this.pending.get(message.id);
+            if (!pending) {
+                continue;
+            }
+
+            clearTimeout(pending.timeout);
+            this.pending.delete(message.id);
+
+            if ('error' in message && message.error) {
+                const errorMessage = message.error.message || 'RPC request failed';
+                pending.reject(new Error(errorMessage));
+            } else {
+                pending.resolve((message as JsonRpcSuccess).result);
+            }
+        }
+    }
+
+    private closeWithError(error: Error): void {
+        for (const [, pending] of this.pending) {
+            clearTimeout(pending.timeout);
+            pending.reject(error);
+        }
+        this.pending.clear();
+    }
+
+    request<T>(method: string, params: Record<string, unknown>, timeoutMs = 10000): Promise<T> {
+        const id = this.nextId++;
+        const payload = JSON.stringify({
+            jsonrpc: '2.0',
+            id,
+            method,
+            params,
+        });
+
+        const stdin = this.child.stdin;
+        if (!stdin || stdin.destroyed || !stdin.writable) {
+            return Promise.reject(new Error('Worker stdin is not writable'));
+        }
+
+        return new Promise<T>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this.pending.delete(id);
+                reject(new Error(`RPC timeout: ${method}`));
+            }, timeoutMs);
+
+            this.pending.set(id, { resolve: (v) => resolve(v as T), reject, timeout });
+
+            stdin.write(`${payload}\n`, (err) => {
+                if (err) {
+                    clearTimeout(timeout);
+                    this.pending.delete(id);
+                    reject(err);
+                }
+            });
+        });
+    }
 }
 
 class WorkerManager {
@@ -58,6 +186,7 @@ class WorkerManager {
             CUDA_VISIBLE_DEVICES: String(gpu.config.device),
             WORKER_PORT: String(gpu.port),
             WORKER_GPU_ID: String(gpu.config.device),
+            WORKER_RPC_MODE: 'stdio',
         };
 
         const child = spawn(this.pythonPath, [workerScript], {
@@ -66,14 +195,11 @@ class WorkerManager {
             stdio: ['pipe', 'pipe', 'pipe'],
         });
 
-        child.stdout?.on('data', (data) => {
-            console.log(`[Worker ${gpu.config.device}] ${data.toString().trim()}`);
-        });
-
         child.stderr?.on('data', (data) => {
             console.error(`[Worker ${gpu.config.device}] ${data.toString().trim()}`);
         });
 
+        const rpc = new WorkerRpcClient(child, gpu.config.device);
         child.on('exit', (code) => {
             console.log(`[Worker ${gpu.config.device}] Exited with code ${code}`);
             this.workers.delete(gpu.config.device);
@@ -83,6 +209,7 @@ class WorkerManager {
             process: child,
             gpu,
             ready: false,
+            rpc,
         });
 
         // Wait for worker to be ready
@@ -91,17 +218,17 @@ class WorkerManager {
 
     private async waitForWorker(gpu: GPUState): Promise<void> {
         const maxRetries = 60; // 60 seconds timeout
-        const url = `http://127.0.0.1:${gpu.port}/health`;
 
         for (let i = 0; i < maxRetries; i++) {
             try {
-                const response = await fetch(url);
-                if (response.ok) {
+                const worker = this.workers.get(gpu.config.device);
+                if (!worker) {
+                    break;
+                }
+                const response = await worker.rpc.request<{ status: string }>('health', {}, 2000);
+                if (response.status === 'ok') {
                     console.log(`[WorkerManager] Worker ${gpu.config.device} is ready`);
-                    const worker = this.workers.get(gpu.config.device);
-                    if (worker) {
-                        worker.ready = true;
-                    }
+                    worker.ready = true;
                     return;
                 }
             } catch {
@@ -114,8 +241,6 @@ class WorkerManager {
     }
 
     async submitTask(gpu: GPUState, taskId: string, taskArgs: any): Promise<any> {
-        const url = `http://127.0.0.1:${gpu.port}/generate`;
-
         try {
             // Ensure args are JSON-serializable by parsing/stringifying
             const safeArgs = JSON.parse(JSON.stringify(taskArgs));
@@ -125,22 +250,45 @@ class WorkerManager {
                 throw new Error(`Invalid fooocus_args: ${validation.reason}`);
             }
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    task_id: taskId,
-                    args: safeArgs,
-                    fooocus_args: fooocusArgs,
-                    fooocus_args_contract_version: FOOOCUS_ARGS_CONTRACT_VERSION,
-                }),
-            });
+            const worker = this.workers.get(gpu.config.device);
+            if (!worker) {
+                throw new Error(`Worker ${gpu.config.device} not found`);
+            }
 
-            return await response.json();
+            await worker.rpc.request('generate', {
+                task_id: taskId,
+                fooocus_args: fooocusArgs,
+                fooocus_args_contract_version: FOOOCUS_ARGS_CONTRACT_VERSION,
+            }, 15000);
+
+            const timeoutAt = Date.now() + 1000 * 60 * 30;
+            while (Date.now() < timeoutAt) {
+                const progress = await this.fetchProgress(gpu, taskId);
+                if (progress.finished) {
+                    return {
+                        success: !progress.error,
+                        task_id: taskId,
+                        results: progress.results || [],
+                        error: progress.error,
+                    };
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            throw new Error(`Task ${taskId} timed out`);
         } catch (error) {
             console.error(`[WorkerManager] Error submitting task to GPU ${gpu.config.device}:`, error);
             throw error;
         }
+    }
+
+    async fetchProgress(gpu: GPUState, taskId: string): Promise<WorkerProgress> {
+        const worker = this.workers.get(gpu.config.device);
+        if (!worker) {
+            throw new Error(`Worker ${gpu.config.device} not found`);
+        }
+
+        return worker.rpc.request<WorkerProgress>('progress', { task_id: taskId }, 5000);
     }
 
     isWorkerReady(device: number): boolean {
@@ -166,14 +314,12 @@ class WorkerManager {
             }
 
             requested++;
-            const url = `http://127.0.0.1:${worker.gpu.port}/stop`;
-
             try {
-                const response = await fetch(url, { method: 'POST' });
-                if (response.ok) {
+                const response = await worker.rpc.request<{ success?: boolean }>('stop', {}, 5000);
+                if (response.success) {
                     success++;
                 } else {
-                    console.warn(`[WorkerManager] Stop failed for worker ${device}: ${response.status}`);
+                    console.warn(`[WorkerManager] Stop failed for worker ${device}`);
                 }
             } catch (error) {
                 console.warn(`[WorkerManager] Stop request error for worker ${device}:`, error);
@@ -183,43 +329,6 @@ class WorkerManager {
         return { requested, success };
     }
 
-    async fetchMetadataBatch(filenames: string[]): Promise<Record<string, unknown>> {
-        if (filenames.length === 0) {
-            return {};
-        }
-
-        for (const [, worker] of this.workers) {
-            if (!worker.ready) {
-                continue;
-            }
-
-            const url = `http://127.0.0.1:${worker.gpu.port}/metadata_batch`;
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filenames }),
-                });
-
-                if (!response.ok) {
-                    continue;
-                }
-
-                const data = await response.json() as {
-                    success?: boolean;
-                    metadata?: Record<string, unknown>;
-                };
-
-                if (data.success && data.metadata && typeof data.metadata === 'object') {
-                    return data.metadata;
-                }
-            } catch (error) {
-                console.warn('[WorkerManager] metadata_batch request failed:', error);
-            }
-        }
-
-        return {};
-    }
 }
 
 export const workerManager = new WorkerManager();

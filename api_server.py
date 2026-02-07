@@ -1,5 +1,12 @@
 import os
 import sys
+
+if os.environ.get("REMGO_ENABLE_LEGACY_API_SERVER") != "1":
+    print("[DEPRECATED] api_server.py is deprecated and disabled by default.")
+    print("[DEPRECATED] Use Node/TS backend: `cd backend && npm run dev`.")
+    print("[DEPRECATED] Set REMGO_ENABLE_LEGACY_API_SERVER=1 only for temporary fallback.")
+    sys.exit(1)
+
 import threading
 import time
 import asyncio

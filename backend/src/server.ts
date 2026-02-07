@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { scheduler } from './scheduler';
 import { workerManager } from './worker-manager';
 import { loadSettings } from './settings-loader';
+import { loadHistory } from './history-loader';
 
 const rootPath = path.join(__dirname, '../..');
 const outputsPath = path.join(rootPath, 'outputs');
@@ -145,35 +146,22 @@ function startProgressPolling(taskId: string, assignments: { gpu: GPUState; imag
         // Poll progress from each GPU worker
         for (const assignment of assignments) {
             const subTaskId = `${taskId}_${assignments.indexOf(assignment)}`;
-            const url = `http://127.0.0.1:${assignment.gpu.port}/progress/${subTaskId}`;
 
             try {
-                const response = await fetch(url);
-                if (response.ok) {
-                    const progress = await response.json() as {
-                        percentage: number;
-                        statusText: string;
-                        finished: boolean;
-                        preview: string | null;
-                        results: string[];
-                    };
+                const progress = await workerManager.fetchProgress(assignment.gpu, subTaskId);
+                console.log(`[ProgressPoll] Task ${subTaskId}: ${progress.percentage}% - ${progress.statusText} (preview: ${progress.preview ? 'yes' : 'no'})`);
 
-                    console.log(`[ProgressPoll] Task ${subTaskId}: ${progress.percentage}% - ${progress.statusText} (preview: ${progress.preview ? 'yes' : 'no'})`);
+                // Update task status with the latest progress
+                if (progress.percentage > status.percentage || progress.preview) {
+                    status.percentage = Math.max(status.percentage, progress.percentage);
+                    status.statusText = progress.statusText || status.statusText;
+                    status.preview = progress.preview;
 
-                    // Update task status with the latest progress
-                    if (progress.percentage > status.percentage || progress.preview) {
-                        status.percentage = Math.max(status.percentage, progress.percentage);
-                        status.statusText = progress.statusText || status.statusText;
-                        status.preview = progress.preview;
-
-                        // Broadcast progress to WebSocket clients
-                        broadcastProgress(taskId, status);
-                    }
-                } else {
-                    console.log(`[ProgressPoll] Failed to fetch progress from ${url}: ${response.status}`);
+                    // Broadcast progress to WebSocket clients
+                    broadcastProgress(taskId, status);
                 }
             } catch (e) {
-                console.log(`[ProgressPoll] Error polling ${url}:`, e);
+                console.log(`[ProgressPoll] Error polling task ${subTaskId}:`, e);
             }
         }
     }, pollInterval);
@@ -318,61 +306,8 @@ app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {
 });
 
 app.get('/history', async () => {
-    // Scans both flat files and date subdirectories in outputs
     try {
-        if (!fs.existsSync(outputsPath)) {
-            return [];
-        }
-
-        const history: any[] = [];
-        const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
-
-        for (const entry of entries) {
-            // Check files directly in outputs directory
-            if (entry.isFile() && (entry.name.endsWith('.png') || entry.name.endsWith('.jpg') || entry.name.endsWith('.jpeg') || entry.name.endsWith('.webp'))) {
-                const filePath = path.join(outputsPath, entry.name);
-                const stats = fs.statSync(filePath);
-                history.push({
-                    filename: entry.name,
-                    path: entry.name,
-                    created: stats.mtimeMs / 1000, // Convert to seconds for frontend
-                    metadata: null
-                });
-            }
-            // Also check date subdirectories (e.g., 2026-02-07)
-            else if (entry.isDirectory() && entry.name.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                const dateDir = path.join(outputsPath, entry.name);
-                const files = fs.readdirSync(dateDir);
-
-                for (const file of files) {
-                    if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.jpeg') || file.endsWith('.webp')) {
-                        const relPath = `${entry.name}/${file}`;
-                        const filePath = path.join(dateDir, file);
-                        const stats = fs.statSync(filePath);
-                        history.push({
-                            filename: file,
-                            path: relPath,
-                            created: stats.mtimeMs / 1000,
-                            metadata: null
-                        });
-                    }
-                }
-            }
-        }
-
-        // Sort by creation time descending and limit to 500
-        const limitedHistory = history.sort((a, b) => b.created - a.created).slice(0, 500);
-
-        // Enrich history with metadata from Python SQLite store.
-        const filenames = limitedHistory.map((item) => item.filename);
-        const metadataMap = await workerManager.fetchMetadataBatch(filenames);
-        for (const item of limitedHistory) {
-            const metadata = metadataMap[item.filename];
-            item.metadata = metadata ?? null;
-        }
-
-        return limitedHistory;
-
+        return loadHistory(outputsPath, 500);
     } catch (error) {
         console.error('[History] Error scanning outputs:', error);
         return [];

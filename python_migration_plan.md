@@ -61,3 +61,24 @@
 - Updated Python worker to consume `fooocus_args` with fallback compatibility: `python_worker.py`.
 - Added worker contract version field and strict validation for `fooocus_args` length/types on both sides.
 - Added contract documentation: `docs/worker-contract.md`.
+
+## Implemented After This Change (2026-02-08)
+- Completed backlog item 5.
+  - `/history` now loads image metadata directly in TypeScript from `outputs/metadata.db`.
+  - Added `backend/src/history-loader.ts`.
+  - Removed Python worker metadata API dependency (`/metadata`, `/metadata_batch`).
+- Completed backlog item 6.
+  - `api_server.py` is now explicitly deprecated and disabled unless `REMGO_ENABLE_LEGACY_API_SERVER=1`.
+  - `run_remgo.sh` and `run_remgo.bat` now route to a unified TS launcher.
+- Started backlog item 7 groundwork.
+  - Added TS operations launcher: `backend/src/launcher.ts`.
+  - Consolidated runtime orchestration (venv/bootstrap + backend/frontend process startup) into TS.
+  - Removed Python-side legacy arg building in `python_worker.py`; worker now requires TS `fooocus_args`.
+  - Deprecated and disabled `launch.py` and `entry_with_update.py` by default.
+  - Introduced stdio JSON-RPC between TS backend and Python workers (`health/generate/progress/stop`).
+  - Switched backend worker manager and progress polling from worker HTTP calls to RPC calls.
+
+## Remaining Work
+1. Remove `api_server.py`, `launch.py`, and `entry_with_update.py` from default docs and release artifacts.
+2. Remove legacy HTTP worker mode after validating RPC-only operation in all environments.
+3. Split Python modules into `core_inference/` and `legacy_ui/` directory boundaries and update imports.

@@ -2,6 +2,15 @@
 
 This document defines the TS-to-Python worker payload contract used by RemGo.
 
+## Transport
+- Internal backend-to-worker communication uses `stdio` JSON-RPC (`jsonrpc: "2.0"`).
+- Supported worker methods:
+1. `health`
+2. `generate`
+3. `progress`
+4. `stop`
+- Legacy worker HTTP mode remains only for temporary compatibility.
+
 ## Envelope
 - Field: `fooocus_args_contract_version`
 - Current value: `1`
@@ -32,8 +41,9 @@ If `fooocus_args` is present, both sender and receiver must validate:
 - `[14]` `number`: refiner switch
 
 ## Compatibility Rule
-- When `fooocus_args` is omitted, Python may use legacy request-to-args builder.
-- When `fooocus_args` is provided, it is authoritative and must pass validation.
+- `fooocus_args` is required.
+- Python worker rejects requests that omit `fooocus_args`.
+- `fooocus_args` must pass contract version and shape validation.
 
 ## Change Management
 - Any index/semantic change requires:
