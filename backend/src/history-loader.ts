@@ -118,10 +118,7 @@ function loadMetadataMapViaPython(metadataDbPath: string, filenames: string[]): 
     const script = [
         'import json, sqlite3, sys',
         'db_path = sys.argv[1]',
-        'names = json.loads(sys.argv[2])',
-        'if not names:',
-        '    print("[]")',
-        '    raise SystemExit(0)',
+        'names = json.loads(sys.stdin.read())',
         'conn = sqlite3.connect(db_path)',
         'cur = conn.cursor()',
         'placeholders = ",".join("?" for _ in names)',
@@ -131,9 +128,10 @@ function loadMetadataMapViaPython(metadataDbPath: string, filenames: string[]): 
     ].join('; ');
 
     try {
-        const raw = execFileSync(python, ['-c', script, metadataDbPath, JSON.stringify(filenames)], {
+        const raw = execFileSync(python, ['-c', script, metadataDbPath], {
             encoding: 'utf-8',
-            stdio: ['ignore', 'pipe', 'pipe'],
+            stdio: ['pipe', 'pipe', 'pipe'],
+            input: JSON.stringify(filenames),
         });
         const rows = JSON.parse(raw) as SQLiteRow[];
         return parseMetadataRows(rows);
