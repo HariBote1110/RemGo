@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
 import { Sparkles, History, Send, Settings2, ChevronDown, ChevronUp, ImagePlus, Square, Search } from 'lucide-react';
@@ -42,6 +42,20 @@ function App() {
 
   const isProcessing = Object.values(activeTasks).some(t => !t.finished);
   const currentTask = Object.values(activeTasks).find(t => !t.finished) || Object.values(activeTasks).at(-1);
+  const availableStyleSet = useMemo(() => new Set(availableOptions.styles), [availableOptions.styles]);
+  const selectedAvailableStyles = useMemo(
+    () => settings.styleSelections.filter(style => availableStyleSet.has(style)),
+    [settings.styleSelections, availableStyleSet]
+  );
+  const unavailableSelectedStyles = useMemo(
+    () => settings.styleSelections.filter(style => !availableStyleSet.has(style)),
+    [settings.styleSelections, availableStyleSet]
+  );
+  const displayedStyles = useMemo(() => {
+    const selectedSet = new Set(selectedAvailableStyles);
+    const unselected = availableOptions.styles.filter(style => !selectedSet.has(style));
+    return [...selectedAvailableStyles, ...unselected].slice(0, 200);
+  }, [availableOptions.styles, selectedAvailableStyles]);
 
   return (
     <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -129,10 +143,13 @@ function App() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-white/40">Styles</label>
-                      <span className="text-xs text-white/30">{settings.styleSelections.length} selected</span>
+                      <span className="text-xs text-white/30">
+                        {selectedAvailableStyles.length} selected
+                        {unavailableSelectedStyles.length > 0 ? ` (${unavailableSelectedStyles.length} unavailable)` : ''}
+                      </span>
                     </div>
                     <div className="max-h-32 overflow-y-auto bg-black/20 rounded-lg p-2 space-y-1">
-                      {availableOptions.styles.slice(0, 50).map(style => (
+                      {displayedStyles.map(style => (
                         <label key={style} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-white/5 cursor-pointer">
                           <input
                             type="checkbox"

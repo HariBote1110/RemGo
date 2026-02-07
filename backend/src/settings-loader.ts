@@ -41,7 +41,16 @@ function listStyleNames(stylesPath: string): string[] {
             // Ignore invalid style files and keep loading the rest.
         }
     }
-    return styles;
+    const unique = Array.from(new Set(styles));
+
+    // Match Python side legal styles that are not stored as JSON style entries.
+    for (const special of ['Fooocus V2', 'Random Style']) {
+        if (!unique.includes(special)) {
+            unique.push(special);
+        }
+    }
+
+    return unique;
 }
 
 export function loadSettings(rootPath: string): SettingsPayload {
