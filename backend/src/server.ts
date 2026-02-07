@@ -50,6 +50,7 @@ function loadSettings(): any {
     const checkpointsPath = path.join(rootPath, 'models', 'checkpoints');
     const lorasPath = path.join(rootPath, 'models', 'loras');
     const vaesPath = path.join(rootPath, 'models', 'vae');
+    const presetsPath = path.join(rootPath, 'presets');
 
     const models = fs.existsSync(checkpointsPath)
         ? fs.readdirSync(checkpointsPath).filter(f => f.endsWith('.safetensors'))
@@ -63,10 +64,17 @@ function loadSettings(): any {
         ? fs.readdirSync(vaesPath).filter(f => f.endsWith('.safetensors'))
         : [];
 
+    const presets = fs.existsSync(presetsPath)
+        ? fs.readdirSync(presetsPath)
+            .filter(f => f.endsWith('.json') && !f.startsWith('.'))
+            .map(f => f.replace('.json', ''))
+        : ['default'];
+
     return {
         models,
         loras,
         vaes: ['Default (model)', ...vaes],
+        presets,
         aspect_ratios: ['704×1408', '704×1344', '768×1344', '768×1280', '832×1216', '832×1152',
             '896×1152', '896×1088', '960×1088', '960×1024', '1024×1024', '1024×960',
             '1088×960', '1088×896', '1152×896', '1152×832', '1216×832', '1280×768',
