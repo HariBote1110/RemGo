@@ -42,6 +42,15 @@ interface TaskStatus {
     gpuDevice?: number;
 }
 
+interface GenerateRequestBody {
+    prompt?: string;
+    negative_prompt?: string;
+    image_number?: number;
+    image_seed?: number;
+    seed_random?: boolean;
+    [key: string]: unknown;
+}
+
 const activeTasks = new Map<string, TaskStatus>();
 
 // Load settings from Python config
@@ -135,8 +144,10 @@ app.get('/gpus', async () => {
     };
 });
 
-app.post<{ Body: any }>('/generate', async (request) => {
+app.post<{ Body: GenerateRequestBody }>('/generate', async (request) => {
     const taskId = String(Date.now());
+    const body = request.body;
+    const totalImages = body.image_number || 1;
 
     activeTasks.set(taskId, {
         percentage: 0,
@@ -148,48 +159,95 @@ app.post<{ Body: any }>('/generate', async (request) => {
     // Broadcast initial status
     broadcastProgress(taskId, activeTasks.get(taskId)!);
 
-    if (scheduler.isEnabled()) {
-        const gpu = scheduler.selectGPU();
-        if (gpu) {
-            scheduler.markBusy(gpu.config.device, true);
-            activeTasks.get(taskId)!.gpuDevice = gpu.config.device;
+    if (scheduler.isEnabled() && totalImages > 0) {
+        // Distribute images across GPUs based on weight
+        const assignments = scheduler.distributeImages(totalImages);
 
-            // Update status with GPU assignment
-            const status = activeTasks.get(taskId)!;
-            status.statusText = `Processing on ${gpu.config.name}`;
-            status.percentage = 10;
-            broadcastProgress(taskId, status);
-
-            // Submit to worker asynchronously
-            workerManager.submitTask(gpu, taskId, request.body)
-                .then((result) => {
-                    const status = activeTasks.get(taskId);
-                    if (status) {
-                        status.results = result.results || [];
-                        status.finished = true;
-                        status.percentage = 100;
-                        status.statusText = result.success ? 'Finished' : `Error: ${result.error}`;
-                        // Broadcast completion with results
-                        broadcastProgress(taskId, status);
-                    }
-                    scheduler.markBusy(gpu.config.device, false);
-                })
-                .catch((error) => {
-                    const status = activeTasks.get(taskId);
-                    if (status) {
-                        status.finished = true;
-                        status.percentage = 100;
-                        status.statusText = `Error: ${error.message}`;
-                        broadcastProgress(taskId, status);
-                    }
-                    scheduler.markBusy(gpu.config.device, false);
-                });
-
-            return { task_id: taskId, status: 'Started', gpu: gpu.config.device };
+        if (assignments.length === 0) {
+            return { task_id: taskId, status: 'Error', error: 'No GPU available' };
         }
+
+        const status = activeTasks.get(taskId)!;
+        const gpuNames = assignments.map(a => `${a.gpu.config.name}(${a.imageCount})`).join(', ');
+        status.statusText = `Distributing to ${assignments.length} GPU(s): ${gpuNames}`;
+        status.percentage = 5;
+        broadcastProgress(taskId, status);
+
+        console.log(`[Generate] Task ${taskId}: Distributing ${totalImages} images to ${assignments.length} GPUs`);
+        assignments.forEach(a => {
+            console.log(`  - GPU ${a.gpu.config.device} (${a.gpu.config.name}): ${a.imageCount} images`);
+        });
+
+        // Mark all assigned GPUs as busy
+        assignments.forEach(a => scheduler.markBusy(a.gpu.config.device, true));
+
+        // Create sub-tasks for each GPU with adjusted seed
+        let baseSeed = body.image_seed ?? Math.floor(Math.random() * 2147483647);
+        if (body.seed_random) {
+            baseSeed = Math.floor(Math.random() * 2147483647);
+        }
+
+        const subTaskPromises = assignments.map((assignment, idx) => {
+            const subTaskBody = {
+                ...body,
+                image_number: assignment.imageCount,
+                image_seed: baseSeed,
+                seed_random: false, // Already resolved seed
+            };
+
+            // Increment seed for next GPU to avoid duplicates
+            baseSeed += assignment.imageCount;
+
+            const subTaskId = `${taskId}_${idx}`;
+            return workerManager.submitTask(assignment.gpu, subTaskId, subTaskBody)
+                .then(result => ({
+                    gpu: assignment.gpu,
+                    success: result.success,
+                    results: result.results || [],
+                    error: result.error,
+                }))
+                .catch(error => ({
+                    gpu: assignment.gpu,
+                    success: false,
+                    results: [],
+                    error: error.message,
+                }))
+                .finally(() => {
+                    scheduler.markBusy(assignment.gpu.config.device, false);
+                });
+        });
+
+        // Process results as they complete
+        let completedCount = 0;
+        const allResults: string[] = [];
+
+        Promise.all(subTaskPromises).then(results => {
+            const status = activeTasks.get(taskId)!;
+
+            results.forEach((result, idx) => {
+                if (result.success) {
+                    allResults.push(...result.results);
+                } else {
+                    console.error(`[Generate] Sub-task ${idx} failed:`, result.error);
+                }
+            });
+
+            status.results = allResults;
+            status.finished = true;
+            status.percentage = 100;
+            status.statusText = `Finished (${allResults.length}/${totalImages} images)`;
+            broadcastProgress(taskId, status);
+        });
+
+        return {
+            task_id: taskId,
+            status: 'Started',
+            gpus: assignments.map(a => ({ device: a.gpu.config.device, images: a.imageCount })),
+            total_images: totalImages,
+        };
     }
 
-    return { task_id: taskId, status: 'Error', error: 'No GPU available' };
+    return { task_id: taskId, status: 'Error', error: 'Multi-GPU not enabled or no images requested' };
 });
 
 app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {

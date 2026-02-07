@@ -134,6 +134,61 @@ export class GPUScheduler {
     getGPUByDevice(device: number): GPUState | undefined {
         return this.gpus.find(g => g.config.device === device);
     }
+
+    /**
+     * Get all available (non-busy) GPUs
+     */
+    getAvailableGPUs(): GPUState[] {
+        return this.gpus.filter(g => !g.busy);
+    }
+
+    /**
+     * Distribute image count across GPUs based on weight
+     * Returns array of { gpu, imageCount } assignments
+     */
+    distributeImages(totalImages: number): Array<{ gpu: GPUState; imageCount: number }> {
+        const available = this.getAvailableGPUs();
+
+        // If no GPUs available, use all GPUs
+        const gpusToUse = available.length > 0 ? available : this.gpus;
+
+        if (gpusToUse.length === 0) {
+            return [];
+        }
+
+        // If only 1 image or 1 GPU, assign all to first GPU
+        if (totalImages <= 1 || gpusToUse.length === 1) {
+            return [{ gpu: gpusToUse[0], imageCount: totalImages }];
+        }
+
+        // Calculate total weight
+        const totalWeight = gpusToUse.reduce((sum, g) => sum + g.config.weight, 0);
+
+        // Distribute based on weight proportion
+        const assignments: Array<{ gpu: GPUState; imageCount: number }> = [];
+        let remaining = totalImages;
+
+        for (let i = 0; i < gpusToUse.length; i++) {
+            const gpu = gpusToUse[i];
+            const isLast = i === gpusToUse.length - 1;
+
+            if (isLast) {
+                // Last GPU gets remaining
+                if (remaining > 0) {
+                    assignments.push({ gpu, imageCount: remaining });
+                }
+            } else {
+                // Calculate proportion (round down)
+                const count = Math.floor(totalImages * gpu.config.weight / totalWeight);
+                if (count > 0) {
+                    assignments.push({ gpu, imageCount: count });
+                    remaining -= count;
+                }
+            }
+        }
+
+        return assignments.filter(a => a.imageCount > 0);
+    }
 }
 
 export const scheduler = new GPUScheduler();
