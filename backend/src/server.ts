@@ -167,6 +167,51 @@ app.get('/history', async () => {
     return [];
 });
 
+// WebSocket connections for real-time updates
+const wsConnections = new Set<any>();
+
+app.register(async function (fastify) {
+    fastify.get('/ws', { websocket: true }, (socket, req) => {
+        wsConnections.add(socket);
+        console.log('[WS] Client connected');
+
+        socket.on('message', (message: Buffer) => {
+            try {
+                const data = JSON.parse(message.toString());
+                console.log('[WS] Message received:', data);
+            } catch (e) {
+                // Ignore invalid JSON
+            }
+        });
+
+        socket.on('close', () => {
+            wsConnections.delete(socket);
+            console.log('[WS] Client disconnected');
+        });
+
+        socket.on('error', (err: Error) => {
+            console.error('[WS] Error:', err);
+            wsConnections.delete(socket);
+        });
+    });
+});
+
+// Broadcast to all WebSocket clients
+function broadcastProgress(taskId: string, status: TaskStatus) {
+    const message = JSON.stringify({
+        type: 'progress',
+        task_id: taskId,
+        ...status,
+    });
+    wsConnections.forEach((ws) => {
+        try {
+            ws.send(message);
+        } catch (e) {
+            // Ignore errors
+        }
+    });
+}
+
 // Health check
 app.get('/health', async () => {
     return { status: 'ok' };
