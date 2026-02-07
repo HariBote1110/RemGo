@@ -42,13 +42,23 @@ cd ..
 
 # Kill existing backend if running
 pkill -f "python3 api_server.py" || true
+pkill -f "tsx watch src/server.ts" || true
 
 # Start Backend in background
-echo "[INFO] Starting Backend API Server..."
-source venv/bin/activate
-# --vae-in-bf16: Fixes black image generation with noob/Illustrious models (VAE fp16 precision issue)
-python3 api_server.py --vae-in-bf16 > api_server.log 2>&1 &
+echo "[INFO] Starting Backend API Server (Node.js)..."
+
+# Ensure backend dependencies
+cd backend
+if [ ! -d "node_modules" ]; then
+    echo "[INFO] Installing backend dependencies..."
+    npm install
+fi
+
+# Start Node.js server
+# Redirect output to api_server.log for compatibility with existing workflow
+npm run dev > ../api_server.log 2>&1 &
 BACKEND_PID=$!
+cd ..
 
 # Function to kill background process on exit
 trap "kill $BACKEND_PID; exit" INT TERM EXIT

@@ -365,12 +365,14 @@ async function start() {
     try {
         console.log('[Server] Starting RemGo API Server...');
 
-        // Start GPU workers if multi-GPU mode enabled
-        if (scheduler.isEnabled()) {
-            console.log(`[Server] Multi-GPU mode with ${scheduler.getGPUs().length} GPUs`);
+        // Start GPU workers
+        // Even if multi-GPU is disabled in config, scheduler will have a default GPU 0 registered
+        const gpus = scheduler.getGPUs();
+        if (gpus.length > 0) {
+            console.log(`[Server] Starting workers for ${gpus.length} GPUs (Multi-GPU: ${scheduler.isEnabled()})`);
             await workerManager.startWorkers();
         } else {
-            console.log('[Server] Single-GPU mode');
+            console.log('[Server] No GPUs found, skipping worker startup');
         }
 
         await app.listen({ port: 8888, host: '0.0.0.0' });

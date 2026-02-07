@@ -37,7 +37,8 @@ export class GPUScheduler {
 
     private loadConfig(configPath: string): void {
         if (!fs.existsSync(configPath)) {
-            console.log('[Scheduler] Config not found, single GPU mode');
+            console.log('[Scheduler] Config not found, using default single GPU');
+            this.addDefaultGPU();
             return;
         }
 
@@ -49,7 +50,8 @@ export class GPUScheduler {
             this.distribute = config.distribute !== undefined ? config.distribute : true;
 
             if (!this.enabled) {
-                console.log('[Scheduler] Disabled in config');
+                console.log('[Scheduler] Multi-GPU disabled in config, using single GPU');
+                this.addDefaultGPU();
                 return;
             }
 
@@ -69,7 +71,21 @@ export class GPUScheduler {
 
         } catch (error) {
             console.error('[Scheduler] Error loading config:', error);
+            this.addDefaultGPU();
         }
+    }
+
+    private addDefaultGPU(): void {
+        this.gpus.push({
+            config: {
+                device: 0,
+                name: 'Default GPU',
+                weight: 1
+            },
+            busy: false,
+            port: this.basePort,
+            currentWeight: 1,
+        });
     }
 
     isEnabled(): boolean {
