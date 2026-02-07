@@ -3,7 +3,6 @@ import * as path from 'path';
 import { spawn, spawnSync, ChildProcess } from 'child_process';
 
 const isWindows = process.platform === 'win32';
-const npmCmd = 'npm';
 
 function runCommandOrThrow(command: string, args: string[], cwd: string, useShell = false): void {
     const result = spawnSync(command, args, {
@@ -15,6 +14,14 @@ function runCommandOrThrow(command: string, args: string[], cwd: string, useShel
     if (result.status !== 0) {
         throw new Error(`Command failed: ${command} ${args.join(' ')}`);
     }
+}
+
+function runNpmOrThrow(args: string[], cwd: string): void {
+    if (isWindows) {
+        runCommandOrThrow('cmd.exe', ['/d', '/s', '/c', `npm ${args.join(' ')}`], cwd, false);
+        return;
+    }
+    runCommandOrThrow('npm', args, cwd, false);
 }
 
 function commandExists(command: string): boolean {
@@ -61,7 +68,7 @@ function ensureNodeModules(projectPath: string): void {
         return;
     }
     console.log(`[Launcher] Installing dependencies in ${projectPath} ...`);
-    runCommandOrThrow(npmCmd, ['install'], projectPath, isWindows);
+    runNpmOrThrow(['install'], projectPath);
 }
 
 function installPythonDependencies(rootPath: string, python: string): void {
@@ -76,11 +83,17 @@ function startBackend(rootPath: string): ChildProcess {
     const logStream = fs.createWriteStream(logPath, { flags: 'a' });
 
     console.log('[Launcher] Starting backend (Node/TS)...');
-    const child = spawn(npmCmd, ['run', 'dev'], {
-        cwd: backendPath,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: isWindows,
-    });
+    const child = isWindows
+        ? spawn('cmd.exe', ['/d', '/s', '/c', 'npm run dev'], {
+            cwd: backendPath,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: false,
+        })
+        : spawn('npm', ['run', 'dev'], {
+            cwd: backendPath,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: false,
+        });
 
     child.stdout?.pipe(logStream);
     child.stderr?.pipe(logStream);
@@ -98,11 +111,33 @@ function stopChild(child: ChildProcess | null | undefined): void {
 function startFrontend(rootPath: string): ChildProcess {
     const frontendPath = path.join(rootPath, 'frontend');
     console.log('[Launcher] Starting frontend (Vite)...');
-    return spawn(npmCmd, ['run', 'dev'], {
-        cwd: frontendPath,
-        stdio: 'inherit',
-        shell: isWindows,
-    });
+    return isWindows
+        ? spawn('cmd.exe', ['/d', '/s', '/c', 'npm run dev'], {
+            cwd: frontendPath,
+            stdio: 'inherit',
+            shell: false,
+        })
+        : spawn('npm', ['run', 'dev'], {
+            cwd: frontendPath,
+            stdio: 'inherit',
+            shell: false,
+        });
+}
+
+async function waitForBackendReady(timeoutMs = 30000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        try {
+            const response = await fetch('http://127.0.0.1:8888/health');
+            if (response.ok) {
+                return;
+            }
+        } catch {
+            // Retry until timeout.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error('Backend did not become ready on http://127.0.0.1:8888/health');
 }
 
 async function main(): Promise<void> {
@@ -117,6 +152,7 @@ async function main(): Promise<void> {
     ensureNodeModules(path.join(rootPath, 'frontend'));
 
     const backend = startBackend(rootPath);
+    await waitForBackendReady(45000);
     const frontend = startFrontend(rootPath);
 
     const shutdown = (): void => {
