@@ -21,6 +21,7 @@ from modules.hash_cache import init_cache
 import modules.async_worker as worker
 import modules.flags as flags
 import ldm_patched.modules.model_management as model_management
+from modules.gpu_scheduler import get_scheduler, is_multi_gpu_enabled
 
 app = FastAPI(title=f"RemGo API v{fooocus_version.version}")
 
@@ -103,6 +104,24 @@ async def get_preset_details(name: str):
         return content
     except Exception as e:
         raise HTTPException(status_code=404, detail="Preset not found")
+
+@app.get("/gpus")
+async def get_gpu_info():
+    """Get GPU information and multi-GPU status."""
+    scheduler = get_scheduler()
+    return {
+        "multi_gpu_enabled": scheduler.enabled,
+        "gpu_count": scheduler.get_gpu_count(),
+        "gpus": [
+            {
+                "device": gpu.device,
+                "name": gpu.name,
+                "weight": gpu.weight,
+                "busy": scheduler.is_busy(gpu.device)
+            }
+            for gpu in scheduler.gpus
+        ]
+    }
 
 def build_async_task_args(request: TaskRequest):
     # This must match AsyncTask.__init__ in modules/async_worker.py

@@ -1,0 +1,15 @@
+{
+    "enabled": true,
+    "gpus": [
+        {
+            "device": 0,
+            "name": "RTX 3070 Ti",
+            "weight": 3
+        },
+        {
+            "device": 1,
+            "name": "GTX 1650 Super",
+            "weight": 1
+        }
+    ]
+}
