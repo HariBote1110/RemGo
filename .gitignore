@@ -49,6 +49,8 @@ user_path_config-deprecated.txt
 /cache.json*
 /config_states/
 /node_modules
+/backend/node_modules
+/backend/dist
 /package-lock.json
 /.coverage*
 /auth.json
