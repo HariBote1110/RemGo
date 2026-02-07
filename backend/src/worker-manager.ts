@@ -112,10 +112,13 @@ class WorkerManager {
         const url = `http://127.0.0.1:${gpu.port}/generate`;
 
         try {
+            // Ensure args are JSON-serializable by parsing/stringifying
+            const safeArgs = JSON.parse(JSON.stringify(taskArgs));
+
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task_id: taskId, args: taskArgs }),
+                body: JSON.stringify({ task_id: taskId, args: safeArgs }),
             });
 
             return await response.json();

@@ -200,7 +200,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
             False, False, 0,  # mask params
             config.default_save_only_final_enhanced_image,
             config.default_save_metadata_to_images,
-            flags.MetadataScheme(config.default_metadata_scheme),
+            config.default_metadata_scheme,  # Use string value instead of enum
         ])
         
         # ControlNet tasks
