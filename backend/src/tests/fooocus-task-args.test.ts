@@ -37,3 +37,10 @@ test('fooocus task args validator rejects invalid payload', () => {
     const validation = validateFooocusTaskArgs(invalid);
     assert.equal(validation.ok, false);
 });
+
+test('fooocus task args normalizes aspect ratio delimiters', () => {
+    const args = buildFooocusTaskArgs({
+        aspect_ratios_selection: '1152*896',
+    });
+    assert.equal(args[5], '1152×896');
+});

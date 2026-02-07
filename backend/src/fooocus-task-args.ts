@@ -39,6 +39,11 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
     return items;
 }
 
+function normalizeAspectRatio(value: string): string {
+    // Python worker expects "W×H" and splits by the multiplication sign.
+    return value.replace(/[xX*]/g, '×');
+}
+
 function normalizeLoras(value: unknown): Array<[boolean, string, number]> {
     if (!Array.isArray(value)) {
         return [];
@@ -62,7 +67,7 @@ export function buildFooocusTaskArgs(request: GenericRequest): unknown[] {
     const negativePrompt = asString(request.negative_prompt, '');
     const styleSelections = asStringArray(request.style_selections, DEFAULT_STYLES);
     const performance = asString(request.performance_selection, 'Speed');
-    const aspectRatio = asString(request.aspect_ratios_selection, '1024×1024');
+    const aspectRatio = normalizeAspectRatio(asString(request.aspect_ratios_selection, '1024×1024'));
     const imageNumber = asNumber(request.image_number, 1);
     const outputFormat = asString(request.output_format, 'png');
     const imageSeed = asNumber(request.image_seed, -1);

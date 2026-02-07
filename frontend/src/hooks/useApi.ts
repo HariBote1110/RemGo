@@ -6,6 +6,8 @@ const API_HOSTNAME = window.location.hostname;
 const API_BASE = `http://${API_HOSTNAME}:8888`;
 const WS_BASE = `ws://${API_HOSTNAME}:8888`;
 
+const normalizeAspectRatio = (value: string) => value.replace(/[xX*]/g, '×');
+
 export const useApi = () => {
     const { setSettings, setOptions, updateTask, settings } = useStore();
 
@@ -51,7 +53,9 @@ export const useApi = () => {
             if (data.default_prompt_negative !== undefined) newSettings.negativePrompt = data.default_prompt_negative;
             if (data.default_styles !== undefined) newSettings.styleSelections = data.default_styles;
             if (data.default_performance !== undefined) newSettings.performanceSelection = data.default_performance;
-            if (data.default_aspect_ratio !== undefined) newSettings.aspectRatio = data.default_aspect_ratio;
+            if (data.default_aspect_ratio !== undefined) {
+                newSettings.aspectRatio = normalizeAspectRatio(data.default_aspect_ratio);
+            }
             if (data.default_image_number !== undefined) newSettings.imageNumber = data.default_image_number;
             // newSettings.seed // seed usually isn't in preset default, or is -1
 
@@ -88,7 +92,7 @@ export const useApi = () => {
                     negative_prompt: currentSettings.negativePrompt,
                     style_selections: currentSettings.styleSelections,
                     performance_selection: currentSettings.performanceSelection,
-                    aspect_ratios_selection: currentSettings.aspectRatio,
+                    aspect_ratios_selection: normalizeAspectRatio(currentSettings.aspectRatio),
                     image_number: currentSettings.imageNumber,
                     image_seed: currentSettings.seed,
                     seed_random: currentSettings.seedRandom,
