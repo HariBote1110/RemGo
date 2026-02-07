@@ -277,10 +277,10 @@ async def monitor_gpu_task(task_id: str, gpu_device: int):
     
     manager = get_manager()
     
-    # Poll for result
+    # Poll for result (with task_id filter)
     while not status.finished:
-        result = manager.get_result(timeout=0.1)
-        if result and result.task_id == task_id:
+        result = manager.get_result(task_id=task_id, timeout=0.2)
+        if result:
             if result.success:
                 status.results = [process_path(p) for p in result.results]
                 status.finished = True
@@ -293,7 +293,7 @@ async def monitor_gpu_task(task_id: str, gpu_device: int):
             mark_gpu_busy(gpu_device, False)
             return
         
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
     
     mark_gpu_busy(gpu_device, False)
 
