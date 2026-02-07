@@ -245,142 +245,56 @@ async def stop_generation():
         return {"status": "Error stopping", "detail": str(e)}
 
 @app.get("/history")
-async def get_history():
-    """Get history with metadata from log.html files."""
-    import re
-    import urllib.parse
+async def get_history(limit: int = 500, offset: int = 0):
+    """Get history with metadata from SQLite database."""
+    from modules import metadata_db
     
     history = []
     outputs_dir = os.path.join(root, 'outputs')
     
-    if not os.path.exists(outputs_dir):
-        return history
+    # Get images from database
+    try:
+        db_images = metadata_db.get_all_images(limit=limit, offset=offset)
+        for entry in db_images:
+            filepath = os.path.join(outputs_dir, entry['filename'])
+            if os.path.exists(filepath):
+                history.append({
+                    "filename": entry['filename'],
+                    "path": entry['filename'],
+                    "created": entry['created_at'],
+                    "metadata": entry['metadata']
+                })
+    except Exception as e:
+        print(f"Error reading from database: {e}")
     
-    # Walk through date directories
-    for date_dir in sorted(os.listdir(outputs_dir), reverse=True):
-        date_path = os.path.join(outputs_dir, date_dir)
-        if not os.path.isdir(date_path):
-            continue
-        
-        log_path = os.path.join(date_path, 'log.html')
-        log_metadata = {}
-        
-        # Parse log.html if exists
-        if os.path.exists(log_path):
-            try:
-                with open(log_path, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
-                
-                # Find all to_clipboard calls with metadata
-                # Pattern: div id="filename_png"...to_clipboard('encoded_json')
-                pattern = r'<div id="([^"]+)"[^>]*class="image-container"[^>]*>.*?to_clipboard\(\'([^\']+)\'\)'
-                matches = re.findall(pattern, html_content, re.DOTALL)
-                
-                for div_id, encoded_json in matches:
-                    try:
-                        decoded_json = urllib.parse.unquote(encoded_json)
-                        metadata = json.loads(decoded_json)
-                        # Convert div_id back to filename: 2026-02-07_08-57-21_2647_png -> 2026-02-07_08-57-21_2647.png
-                        filename = div_id.rsplit('_', 1)
-                        if len(filename) == 2:
-                            filename = filename[0] + '.' + filename[1]
-                        else:
-                            filename = div_id
-                        log_metadata[filename] = metadata
-                    except (json.JSONDecodeError, Exception):
-                        pass
-            except Exception:
-                pass
-        
-        # Collect images in this directory
-        for filename in os.listdir(date_path):
-            if filename.endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                filepath = os.path.join(date_dir, filename)
-                full_path = os.path.join(date_path, filename)
-                
-                entry = {
+    # Also scan outputs directory for any images not in database
+    if os.path.exists(outputs_dir):
+        db_filenames = {h['filename'] for h in history}
+        for filename in os.listdir(outputs_dir):
+            if filename.endswith(('.png', '.jpg', '.jpeg', '.webp')) and filename not in db_filenames:
+                filepath = os.path.join(outputs_dir, filename)
+                history.append({
                     "filename": filename,
-                    "path": filepath.replace('\\', '/'),
-                    "created": os.path.getctime(full_path),
-                    "metadata": log_metadata.get(filename)
-                }
-                history.append(entry)
+                    "path": filename,
+                    "created": os.path.getctime(filepath),
+                    "metadata": None
+                })
     
     # Sort by creation time descending
-    history.sort(key=lambda x: x['created'], reverse=True)
+    history.sort(key=lambda x: x['created'] if isinstance(x['created'], (int, float)) else 0, reverse=True)
     return history
 
-@app.get("/history/metadata/{date_dir}/{filename}")
-async def get_image_metadata(date_dir: str, filename: str):
-    """Get metadata from log.html for an image file."""
-    import re
-    import urllib.parse
-    
-    outputs_dir = os.path.join(root, 'outputs')
-    log_path = os.path.join(outputs_dir, date_dir, 'log.html')
-    
-    if not os.path.exists(log_path):
-        # Fallback: try to read from image metadata
-        return await get_image_metadata_from_file(date_dir, filename)
+@app.get("/history/metadata/{filename}")
+async def get_image_metadata(filename: str):
+    """Get metadata for an image from SQLite database."""
+    from modules import metadata_db
     
     try:
-        with open(log_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        
-        # Find the div containing this image
-        # The image name is in the div id attribute (with _ instead of .)
-        image_id = filename.replace('.', '_')
-        
-        # Find the button onclick with metadata for this image
-        # Pattern: div id="filename"...to_clipboard('encoded_json')
-        pattern = rf'<div id="{re.escape(image_id)}"[^>]*>.*?to_clipboard\(\'([^\']+)\'\)'
-        match = re.search(pattern, html_content, re.DOTALL)
-        
-        if match:
-            encoded_json = match.group(1)
-            decoded_json = urllib.parse.unquote(encoded_json)
-            metadata = json.loads(decoded_json)
-            return {"metadata": metadata, "scheme": "fooocus_log"}
+        metadata = metadata_db.get_metadata(filename)
+        if metadata:
+            return {"metadata": metadata, "scheme": "sqlite"}
         else:
             return {"metadata": None, "scheme": None}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read metadata: {str(e)}")
-
-async def get_image_metadata_from_file(date_dir: str, filename: str):
-    """Fallback: Get metadata embedded in an image file."""
-    from PIL import Image
-    from modules.meta_parser import read_info_from_image, get_metadata_parser
-    
-    outputs_dir = os.path.join(root, 'outputs')
-    image_path = os.path.join(outputs_dir, date_dir, filename)
-    
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Image not found")
-    
-    try:
-        with Image.open(image_path) as img:
-            parameters, metadata_scheme = read_info_from_image(img)
-            
-            if parameters is None:
-                return {"metadata": None, "scheme": None}
-            
-            result = {}
-            if metadata_scheme:
-                try:
-                    parser = get_metadata_parser(metadata_scheme)
-                    if isinstance(parameters, str):
-                        result = parser.to_json(parameters)
-                    elif isinstance(parameters, dict):
-                        result = parameters
-                except Exception:
-                    result = parameters if isinstance(parameters, dict) else {"raw": parameters}
-            else:
-                result = parameters if isinstance(parameters, dict) else {"raw": parameters}
-            
-            return {
-                "metadata": result,
-                "scheme": metadata_scheme.value if metadata_scheme else None
-            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read metadata: {str(e)}")
 
