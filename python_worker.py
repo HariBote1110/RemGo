@@ -75,33 +75,45 @@ class WorkerHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(content_length)
             
             try:
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Received request, parsing JSON...")
                 data = json.loads(body.decode('utf-8'))
                 task_id = data.get('task_id', str(int(time.time() * 1000)))
                 task_args = data.get('args', {})
                 
-                print(f"[Worker {WORKER_GPU_ID}] Processing task {task_id}")
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task ID = {task_id}")
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Building task args...")
                 
                 # Build task args from request
                 args = self.build_task_args(task_args)
+                
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Args built, creating AsyncTask...")
                 
                 # Create async task
                 task = worker.AsyncTask(args=args)
                 task.task_id = task_id
                 
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: AsyncTask created, adding to queue...")
+                
                 # Add to worker queue
                 worker.async_tasks.append(task)
+                
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task added, waiting for completion...")
                 
                 # Wait for completion
                 results = []
                 while True:
                     if len(task.yields) > 0:
                         flag, product = task.yields.pop(0)
+                        print(f"[Worker {WORKER_GPU_ID}] DEBUG: Yield flag = {flag}")
                         if flag == 'finish':
                             results = list(product)
                             break
                         elif flag == 'results':
                             results = list(product)
                     time.sleep(0.1)
+                
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Task completed, processing results...")
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Raw results = {results}")
                 
                 # Process paths
                 processed_results = []
@@ -112,15 +124,35 @@ class WorkerHandler(BaseHTTPRequestHandler):
                     else:
                         processed_results.append(str(p))
                 
-                print(f"[Worker {WORKER_GPU_ID}] Completed task {task_id}")
-                self.send_json({
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Processed results = {processed_results}")
+                print(f"[Worker {WORKER_GPU_ID}] DEBUG: Sending JSON response...")
+                
+                response_data = {
                     'success': True,
                     'task_id': task_id,
                     'results': processed_results
-                })
+                }
+                
+                # Try to serialize first to catch the error
+                try:
+                    json_str = json.dumps(response_data, cls=EnumEncoder)
+                    print(f"[Worker {WORKER_GPU_ID}] DEBUG: JSON serialization OK, length = {len(json_str)}")
+                except Exception as json_err:
+                    print(f"[Worker {WORKER_GPU_ID}] DEBUG: JSON serialization FAILED: {json_err}")
+                    # Find which field causes the issue
+                    for key, value in response_data.items():
+                        try:
+                            json.dumps({key: value}, cls=EnumEncoder)
+                        except Exception as field_err:
+                            print(f"[Worker {WORKER_GPU_ID}] DEBUG: Field '{key}' failed: {field_err}, type={type(value)}")
+                    raise json_err
+                
+                self.send_json(response_data)
+                print(f"[Worker {WORKER_GPU_ID}] Completed task {task_id}")
                 
             except Exception as e:
                 import traceback
+                print(f"[Worker {WORKER_GPU_ID}] ERROR: {e}")
                 traceback.print_exc()
                 self.send_json({
                     'success': False,
