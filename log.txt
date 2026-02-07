@@ -1,0 +1,109 @@
+Total VRAM 8192 MB, total RAM 57157 MB
+Set vram state to: NORMAL_VRAM
+Always offload VRAM
+Device: cuda:0 NVIDIA GeForce RTX 3070 Ti : native
+VAE dtype: torch.bfloat16
+Using pytorch cross attention
+Target Device: CUDA (NVIDIA GeForce RTX 3070 Ti) detected.
+Refiner unloaded.
+Current Working Directory: D:\Documents\GitHub\RemGo
+Checkpoints paths: ['D:\\Documents\\GitHub\\RemGo\\models\\checkpoints']
+Contents of D:\Documents\GitHub\RemGo\models\checkpoints: ['animagineXLV31_v31.safetensors', 'juggernautXL_v8Rundiffusion.safetensors', 'matrixHentai_v55.safetensors', 'put_checkpoints_here']
+Models found: ['animagineXLV31_v31.safetensors', 'juggernautXL_v8Rundiffusion.safetensors', 'matrixHentai_v55.safetensors']
+[GPU Scheduler] Loaded 2 GPUs:
+  - Device 0: RTX 3070 Ti (weight: 3)
+  - Device 1: GTX 1650 Super (weight: 1)
+[API] Multi-GPU mode enabled with 2 GPUs
+[Manager] Started worker for GPU 0 on port 55153 (PID: 34552)
+model_type EPS
+UNet ADM Dimension 2816
+Using pytorch attention in VAE
+Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
+Using pytorch attention in VAE
+[GPU Worker 0] Started on CUDA device (visible as 0)
+[GPU Worker 0] Device name: NVIDIA GeForce RTX 3070 Ti
+[GPU Worker 0] Listening on port 55153
+Total VRAM 8192 MB, total RAM 57157 MB
+Set vram state to: NORMAL_VRAM
+Always offload VRAM
+Device: cuda:0 NVIDIA GeForce RTX 3070 Ti : native
+VAE dtype: torch.bfloat16
+[Manager] Started worker for GPU 1 on port 55155 (PID: 38540)
+extra {'cond_stage_model.clip_l.logit_scale', 'cond_stage_model.clip_l.text_projection'}
+left over keys: dict_keys(['cond_stage_model.clip_l.transformer.text_model.embeddings.position_ids'])
+Base model loaded: D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors
+VAE loaded: None
+Request to load LoRAs [] for model [D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors].
+Fooocus V2 Expansion: Vocab with 641 words.
+Fooocus Expansion engine loaded for cuda:0, use_fp16 = True.
+Requested to load SDXLClipModel
+Requested to load GPT2LMHeadModel
+Loading 2 new models
+[GPU Worker 1] Started on CUDA device (visible as 0)
+[GPU Worker 1] Device name: NVIDIA GeForce GTX 1650 SUPER
+[GPU Worker 1] Listening on port 55155
+Total VRAM 4096 MB, total RAM 57157 MB
+Trying to enable lowvram mode because your GPU seems to have 4GB or less. If you don't want this use: --always-normal-vram
+Set vram state to: LOW_VRAM
+Always offload VRAM
+Device: cuda:0 NVIDIA GeForce GTX 1650 SUPER : native
+VAE dtype: torch.float32
+[Fooocus Model Management] Moving model(s) has taken 0.46 seconds
+Starting RemGo API Server on http://0.0.0.0:8888
+INFO:     Started server process [16484]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8888 (Press CTRL+C to quit)
+Started worker with PID 16484
+'NoneType' object has no attribute 'local_url'
+Using pytorch cross attention
+[GPU Worker 0] Ready to process tasks
+Refiner unloaded.
+model_type EPS
+UNet ADM Dimension 2816
+Using pytorch attention in VAE
+Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
+Using pytorch attention in VAE
+extra {'cond_stage_model.clip_l.text_projection', 'cond_stage_model.clip_l.logit_scale'}
+left over keys: dict_keys(['cond_stage_model.clip_l.transformer.text_model.embeddings.position_ids'])
+Using pytorch cross attention
+[GPU Worker 1] Ready to process tasks
+Refiner unloaded.
+Base model loaded: D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors
+VAE loaded: None
+Request to load LoRAs [] for model [D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors].
+model_type EPS
+UNet ADM Dimension 2816
+Fooocus V2 Expansion: Vocab with 641 words.
+Fooocus Expansion engine loaded for cuda:0, use_fp16 = True.
+Requested to load SDXLClipModel
+Requested to load GPT2LMHeadModel
+Loading 2 new models
+INFO:     192.168.0.226:56075 - "GET /settings HTTP/1.1" 200 OK
+INFO:     ('192.168.0.226', 56077) - "WebSocket /ws" [accepted]
+INFO:     connection open
+INFO:     192.168.0.226:56080 - "GET /settings HTTP/1.1" 200 OK
+Using pytorch attention in VAE
+Working with z of shape (1, 4, 32, 32) = 4096 dimensions.
+Using pytorch attention in VAE
+[Fooocus Model Management] Moving model(s) has taken 0.89 seconds
+extra {'cond_stage_model.clip_l.text_projection', 'cond_stage_model.clip_l.logit_scale'}
+left over keys: dict_keys(['cond_stage_model.clip_l.transformer.text_model.embeddings.position_ids'])
+Started worker with PID 33272
+Started worker with PID 33272
+'NoneType' object has no attribute 'local_url'
+'NoneType' object has no attribute 'local_url'
+Base model loaded: D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors
+VAE loaded: None
+Request to load LoRAs [] for model [D:\Documents\GitHub\RemGo\models\checkpoints\juggernautXL_v8Rundiffusion.safetensors].
+Fooocus V2 Expansion: Vocab with 641 words.
+Fooocus Expansion engine loaded for cpu, use_fp16 = False.
+Requested to load SDXLClipModel
+Requested to load GPT2LMHeadModel
+Loading 2 new models
+Started worker with PID 35460
+Started worker with PID 35460
+'NoneType' object has no attribute 'local_url'
+'NoneType' object has no attribute 'local_url'
+INFO:     192.168.0.226:56081 - "POST /generate HTTP/1.1" 200 OK
+[Manager] Error communicating with GPU 0: Object of type MetadataScheme is not JSON serializable

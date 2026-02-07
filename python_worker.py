@@ -8,6 +8,15 @@ import json
 import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from enum import Enum
+
+
+class EnumEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Enum types."""
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.value
+        return super().default(obj)
 
 # Get config from environment
 WORKER_PORT = int(os.environ.get('WORKER_PORT', 9000))
@@ -52,7 +61,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
+        self.wfile.write(json.dumps(data, cls=EnumEncoder).encode('utf-8'))
     
     def do_GET(self):
         if self.path == '/health':
@@ -200,7 +209,7 @@ class WorkerHandler(BaseHTTPRequestHandler):
             False, False, 0,  # mask params
             config.default_save_only_final_enhanced_image,
             config.default_save_metadata_to_images,
-            config.default_metadata_scheme,  # Use string value instead of enum
+            str(config.default_metadata_scheme) if hasattr(config.default_metadata_scheme, 'value') else config.default_metadata_scheme,
         ])
         
         # ControlNet tasks
