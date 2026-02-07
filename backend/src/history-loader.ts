@@ -71,6 +71,78 @@ function shellQuote(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
 }
 
+function parseMetadataRows(rows: SQLiteRow[]): Map<string, JsonObject> {
+    const map = new Map<string, JsonObject>();
+    for (const row of rows) {
+        if (typeof row.filename !== 'string' || typeof row.metadata !== 'string') {
+            continue;
+        }
+
+        try {
+            const parsed = JSON.parse(row.metadata) as JsonObject;
+            map.set(row.filename, parsed);
+        } catch {
+            // Ignore malformed metadata rows and continue.
+        }
+    }
+    return map;
+}
+
+function detectPythonExecutable(rootPath: string): string | null {
+    const candidates = [
+        path.join(rootPath, 'venv', 'Scripts', 'python.exe'),
+        path.join(rootPath, 'venv', 'bin', 'python'),
+        'python3',
+        'python',
+    ];
+
+    for (const candidate of candidates) {
+        try {
+            execFileSync(candidate, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+            return candidate;
+        } catch {
+            // Try next candidate.
+        }
+    }
+
+    return null;
+}
+
+function loadMetadataMapViaPython(metadataDbPath: string, filenames: string[]): Map<string, JsonObject> {
+    const rootPath = path.dirname(metadataDbPath);
+    const python = detectPythonExecutable(path.dirname(rootPath));
+    if (!python) {
+        return new Map();
+    }
+
+    const script = [
+        'import json, sqlite3, sys',
+        'db_path = sys.argv[1]',
+        'names = json.loads(sys.argv[2])',
+        'if not names:',
+        '    print("[]")',
+        '    raise SystemExit(0)',
+        'conn = sqlite3.connect(db_path)',
+        'cur = conn.cursor()',
+        'placeholders = ",".join("?" for _ in names)',
+        'cur.execute(f"SELECT filename, metadata FROM images WHERE filename IN ({placeholders})", names)',
+        'rows = [{"filename": r[0], "metadata": r[1]} for r in cur.fetchall()]',
+        'print(json.dumps(rows, ensure_ascii=False))',
+    ].join('; ');
+
+    try {
+        const raw = execFileSync(python, ['-c', script, metadataDbPath, JSON.stringify(filenames)], {
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        const rows = JSON.parse(raw) as SQLiteRow[];
+        return parseMetadataRows(rows);
+    } catch (error) {
+        console.warn('[HistoryLoader] Python fallback for metadata.db failed:', error);
+        return new Map();
+    }
+}
+
 function loadMetadataMapFromSQLite(outputsPath: string, filenames: string[]): Map<string, JsonObject> {
     const metadataDbPath = path.join(outputsPath, 'metadata.db');
     if (!fs.existsSync(metadataDbPath) || filenames.length === 0) {
@@ -86,27 +158,11 @@ function loadMetadataMapFromSQLite(outputsPath: string, filenames: string[]): Ma
             encoding: 'utf-8',
             stdio: ['ignore', 'pipe', 'pipe'],
         });
-
         const rows = JSON.parse(raw) as SQLiteRow[];
-        const map = new Map<string, JsonObject>();
-
-        for (const row of rows) {
-            if (typeof row.filename !== 'string' || typeof row.metadata !== 'string') {
-                continue;
-            }
-
-            try {
-                const parsed = JSON.parse(row.metadata) as JsonObject;
-                map.set(row.filename, parsed);
-            } catch {
-                // Ignore malformed metadata rows and continue.
-            }
-        }
-
-        return map;
+        return parseMetadataRows(rows);
     } catch (error) {
-        console.warn('[HistoryLoader] Failed to query SQLite metadata.db:', error);
-        return new Map();
+        console.warn('[HistoryLoader] sqlite3 CLI query failed, trying Python fallback:', error);
+        return loadMetadataMapViaPython(metadataDbPath, uniqueNames);
     }
 }
 
