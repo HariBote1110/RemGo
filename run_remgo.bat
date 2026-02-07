@@ -61,15 +61,27 @@ cd frontend
 if not exist node_modules (
     call npm install
 )
+cd ..
 
-:: Start Backend in a new window
-echo [INFO] Starting Backend API Server...
-:: --vae-in-bf16: Fixes black image generation with noob/Illustrious models (VAE fp16 precision issue)
-start "RemGo Backend" cmd /k "cd /d %~dp0 && call venv\Scripts\activate && python api_server.py --vae-in-bf16"
+:: Setup Backend (Node.js)
+echo [INFO] Setting up backend dependencies...
+cd backend
+if not exist node_modules (
+    call npm install
+)
+cd ..
+
+:: Start Backend in a new window (Node.js version)
+echo [INFO] Starting Node.js Backend API Server...
+start "RemGo Backend" cmd /k "cd /d %~dp0\backend && npm run dev"
+
+:: Wait a moment for backend to start
+timeout /t 3 /nobreak >nul
 
 :: Start Frontend
 echo [INFO] Starting Frontend Dev Server...
 echo [INFO] Once started, you can access RemGo from other devices using your IP.
+cd frontend
 call npm run dev
 
 pause
