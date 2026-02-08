@@ -16,6 +16,25 @@ export interface SettingsPayload {
     default_lora_count: number;
     refiner_swap_methods: string[];
     metadata_schemes: string[];
+    max_image_number: number;
+}
+
+function loadMaxImageNumberFromConfig(rootPath: string): number {
+    const configPath = path.join(rootPath, 'config.txt');
+    if (!fs.existsSync(configPath)) {
+        return 32;
+    }
+    try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const value = parsed.default_max_image_number;
+        if (typeof value === 'number' && Number.isInteger(value) && value >= 1) {
+            return value;
+        }
+    } catch {
+        // Ignore malformed config here and keep safe fallback.
+    }
+    return 32;
 }
 
 function listFilesByExtension(dirPath: string, extension: string): string[] {
@@ -77,6 +96,8 @@ export function loadSettings(rootPath: string): SettingsPayload {
         styles = ['Fooocus V2', 'Fooocus Enhance', 'Fooocus Sharp'];
     }
 
+    const maxImageNumber = loadMaxImageNumberFromConfig(rootPath);
+
     return {
         models,
         loras,
@@ -100,5 +121,6 @@ export function loadSettings(rootPath: string): SettingsPayload {
         default_lora_count: 5,
         refiner_swap_methods: ['joint', 'separate', 'vae'],
         metadata_schemes: ['fooocus', 'a1111'],
+        max_image_number: maxImageNumber,
     };
 }

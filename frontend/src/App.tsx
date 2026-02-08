@@ -512,7 +512,7 @@ function App() {
                     <span className="text-xs text-premium-accent">{settings.imageNumber}</span>
                   </div>
                   <input
-                    type="range" min="1" max="32" step="1"
+                    type="range" min="1" max={availableOptions.maxImageNumber} step="1"
                     value={settings.imageNumber}
                     onChange={(e) => setSettings({ imageNumber: parseInt(e.target.value) })}
                     className="w-full accent-premium-accent"

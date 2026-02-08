@@ -31,6 +31,7 @@ export const useApi = () => {
                 defaultLoraCount: data.default_lora_count || 5,
                 refinerSwapMethods: data.refiner_swap_methods || ['joint', 'separate', 'vae'],
                 metadataSchemes: data.metadata_schemes || ['fooocus', 'a1111'],
+                maxImageNumber: data.max_image_number || 32,
             });
         } catch (err) {
             console.error('Failed to fetch settings:', err);

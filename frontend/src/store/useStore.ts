@@ -75,6 +75,7 @@ interface AppState {
         defaultLoraCount: number;
         refinerSwapMethods: string[];
         metadataSchemes: string[];
+        maxImageNumber: number;
     };
     setSettings: (settings: Partial<TaskSettings>) => void;
     updateTask: (taskId: string, progress: Partial<TaskProgress>) => void;
@@ -140,6 +141,7 @@ export const useStore = create<AppState>()(
                 defaultLoraCount: 5,
                 refinerSwapMethods: ['joint', 'separate', 'vae'],
                 metadataSchemes: ['fooocus', 'a1111'],
+                maxImageNumber: 32,
             },
             setSettings: (newSettings) =>
                 set((state) => ({ settings: { ...state.settings, ...newSettings } })),
