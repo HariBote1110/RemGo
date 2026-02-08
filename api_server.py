@@ -97,7 +97,8 @@ async def get_settings():
         "schedulers": flags.scheduler_list,
         "output_formats": flags.OutputFormat.list(),
         "clip_skip_max": flags.clip_skip_max,
-        "default_lora_count": config.default_max_lora_number
+        "default_lora_count": config.default_max_lora_number,
+        "max_image_number": config.default_max_image_number
     }
 
 @app.get("/presets")

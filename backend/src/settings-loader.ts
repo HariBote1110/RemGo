@@ -20,7 +20,7 @@ export interface SettingsPayload {
 }
 
 function loadMaxImageNumberFromConfig(rootPath: string): number {
-    const configPath = path.join(rootPath, 'config.txt');
+    const configPath = process.env.config_path || path.join(rootPath, 'config.txt');
     if (!fs.existsSync(configPath)) {
         return 32;
     }
