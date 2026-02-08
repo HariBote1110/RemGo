@@ -122,15 +122,29 @@ function parseLorasFromMetadata(metadata: Record<string, unknown>): LoraSettings
   return loras;
 }
 
+interface ConfigEditorField {
+  key: string;
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'unknown';
+  default_value: unknown;
+  current_value: unknown;
+}
+
 function App() {
   const { settings, setSettings, activeTasks, availableOptions } = useStore();
-  const { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory } = useApi();
+  const { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory, fetchConfigEditor, updateConfigEditor } = useApi();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
+  const [activeTab, setActiveTab] = useState<'generate' | 'history' | 'config'>('generate');
   const [historyImages, setHistoryImages] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<{ url: string; path: string } | null>(null);
   const [imageMetadata, setImageMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [configFields, setConfigFields] = useState<ConfigEditorField[]>([]);
+  const [configValues, setConfigValues] = useState<Record<string, unknown>>({});
+  const [configJsonDrafts, setConfigJsonDrafts] = useState<Record<string, string>>({});
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [configMessage, setConfigMessage] = useState<string>('');
+  const [configQuery, setConfigQuery] = useState('');
 
   useEffect(() => {
     fetchSettings();
@@ -141,6 +155,34 @@ function App() {
       fetchHistory().then(setHistoryImages);
     }
   }, [activeTab, fetchHistory]);
+
+  useEffect(() => {
+    if (activeTab !== 'config') return;
+    setConfigLoading(true);
+    fetchConfigEditor()
+      .then((payload) => {
+        if (!payload || !Array.isArray(payload.fields)) {
+          setConfigMessage('設定項目の読み込みに失敗しました。');
+          return;
+        }
+        const fields = payload.fields as ConfigEditorField[];
+        setConfigFields(fields);
+        const values: Record<string, unknown> = {};
+        const drafts: Record<string, string> = {};
+        fields.forEach((field) => {
+          values[field.key] = field.current_value;
+          if (field.type === 'array' || field.type === 'object') {
+            drafts[field.key] = JSON.stringify(field.current_value, null, 2);
+          }
+        });
+        setConfigValues(values);
+        setConfigJsonDrafts(drafts);
+        setConfigMessage('');
+      })
+      .finally(() => {
+        setConfigLoading(false);
+      });
+  }, [activeTab, fetchConfigEditor]);
 
   const handleGenerate = async () => {
     if (!settings.prompt.trim()) return;
@@ -172,6 +214,40 @@ function App() {
     const unselected = availableOptions.styles.filter(style => !selectedSet.has(style));
     return [...selectedAvailableStyles, ...unselected].slice(0, 200);
   }, [availableOptions.styles, selectedAvailableStyles]);
+
+  const displayedConfigFields = useMemo(() => {
+    const query = configQuery.trim().toLowerCase();
+    if (!query) {
+      return configFields;
+    }
+    return configFields.filter((field) => field.key.toLowerCase().includes(query));
+  }, [configFields, configQuery]);
+
+  const updateConfigPrimitive = (key: string, value: unknown) => {
+    setConfigValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateConfigJson = (key: string, raw: string) => {
+    setConfigJsonDrafts((prev) => ({ ...prev, [key]: raw }));
+    try {
+      const parsed = JSON.parse(raw);
+      setConfigValues((prev) => ({ ...prev, [key]: parsed }));
+      setConfigMessage('');
+    } catch {
+      setConfigMessage(`"${key}" のJSONが不正です。`);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    setConfigSaving(true);
+    const resp = await updateConfigEditor(configValues);
+    if (resp?.success) {
+      setConfigMessage(`保存しました（${resp.updated_keys?.length ?? 0}項目）。反映には再起動が必要です。`);
+    } else {
+      setConfigMessage(resp?.error ?? '保存に失敗しました。');
+    }
+    setConfigSaving(false);
+  };
 
   const applyMetadataToSettings = () => {
     if (!imageMetadata || typeof imageMetadata !== 'object') {
@@ -244,6 +320,28 @@ function App() {
     if (clipSkip !== null) {
       updates.clipSkip = Math.trunc(clipSkip);
     }
+    const adaptiveCfg = parseMaybeNumber(metadata.adaptive_cfg);
+    if (adaptiveCfg !== null) {
+      updates.adaptiveCfg = adaptiveCfg;
+    }
+    const overwriteStep = parseMaybeNumber(metadata.steps);
+    if (overwriteStep !== null) {
+      updates.overwriteStep = Math.trunc(overwriteStep);
+    }
+    const overwriteSwitch = parseMaybeNumber(metadata.overwrite_switch);
+    if (overwriteSwitch !== null) {
+      updates.overwriteSwitch = overwriteSwitch;
+    }
+    if (typeof metadata.refiner_swap_method === 'string') {
+      updates.refinerSwapMethod = metadata.refiner_swap_method;
+    }
+    const controlnetSoftness = parseMaybeNumber(metadata.controlnet_softness);
+    if (controlnetSoftness !== null) {
+      updates.controlnetSoftness = controlnetSoftness;
+    }
+    if (typeof metadata.metadata_scheme === 'string') {
+      updates.metadataScheme = metadata.metadata_scheme;
+    }
 
     const loras = parseLorasFromMetadata(metadata);
     if (loras.length > 0) {
@@ -281,6 +379,12 @@ function App() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'history' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60'}`}
           >
             History
+          </button>
+          <button
+            onClick={() => setActiveTab('config')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'config' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/60'}`}
+          >
+            Config
           </button>
         </div>
       </header>
@@ -688,6 +792,213 @@ function App() {
                           <p className="text-xs text-white/30 italic">No LoRAs configured</p>
                         )}
                       </div>
+
+                      <div className="border-t border-white/10 pt-4 space-y-4">
+                        <p className="text-xs font-semibold tracking-wide text-white/60">Expert</p>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Adaptive CFG (TSNR)</label>
+                            <input
+                              type="number"
+                              value={settings.adaptiveCfg}
+                              onChange={(e) => setSettings({ adaptiveCfg: parseFloat(e.target.value) || 0 })}
+                              step="0.1"
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">ControlNet Softness</label>
+                            <input
+                              type="number"
+                              value={settings.controlnetSoftness}
+                              onChange={(e) => setSettings({ controlnetSoftness: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              min="0"
+                              max="1"
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Overwrite Steps (-1=auto)</label>
+                            <input
+                              type="number"
+                              value={settings.overwriteStep}
+                              onChange={(e) => setSettings({ overwriteStep: parseInt(e.target.value) || -1 })}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Overwrite Switch (-1=auto)</label>
+                            <input
+                              type="number"
+                              value={settings.overwriteSwitch}
+                              onChange={(e) => setSettings({ overwriteSwitch: parseFloat(e.target.value) || -1 })}
+                              step="0.05"
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Overwrite Width (-1=off)</label>
+                            <input
+                              type="number"
+                              value={settings.overwriteWidth}
+                              onChange={(e) => setSettings({ overwriteWidth: parseInt(e.target.value) || -1 })}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Overwrite Height (-1=off)</label>
+                            <input
+                              type="number"
+                              value={settings.overwriteHeight}
+                              onChange={(e) => setSettings({ overwriteHeight: parseInt(e.target.value) || -1 })}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Refiner Swap Method</label>
+                            <select
+                              value={settings.refinerSwapMethod}
+                              onChange={(e) => setSettings({ refinerSwapMethod: e.target.value })}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            >
+                              {availableOptions.refinerSwapMethods.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs text-white/50">Metadata Scheme</label>
+                            <select
+                              value={settings.metadataScheme}
+                              onChange={(e) => setSettings({ metadataScheme: e.target.value })}
+                              className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            >
+                              {availableOptions.metadataSchemes.map((m) => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <label className="flex items-center gap-2 text-xs text-white/60">
+                            <input
+                              type="checkbox"
+                              checked={settings.disableSeedIncrement}
+                              onChange={(e) => setSettings({ disableSeedIncrement: e.target.checked })}
+                              className="accent-premium-accent"
+                              disabled={isProcessing}
+                            />
+                            Disable Seed Increment
+                          </label>
+                          <label className="flex items-center gap-2 text-xs text-white/60">
+                            <input
+                              type="checkbox"
+                              checked={settings.saveMetadataToImages}
+                              onChange={(e) => setSettings({ saveMetadataToImages: e.target.checked })}
+                              className="accent-premium-accent"
+                              disabled={isProcessing}
+                            />
+                            Save Metadata to Images
+                          </label>
+                        </div>
+
+                        <div className="space-y-3 border border-white/10 rounded-lg p-3 bg-black/20">
+                          <label className="flex items-center gap-2 text-xs text-white/60">
+                            <input
+                              type="checkbox"
+                              checked={settings.freeuEnabled}
+                              onChange={(e) => setSettings({ freeuEnabled: e.target.checked })}
+                              className="accent-premium-accent"
+                              disabled={isProcessing}
+                            />
+                            Enable FreeU
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <input
+                              type="number"
+                              value={settings.freeuB1}
+                              onChange={(e) => setSettings({ freeuB1: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                            <input
+                              type="number"
+                              value={settings.freeuB2}
+                              onChange={(e) => setSettings({ freeuB2: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                            <input
+                              type="number"
+                              value={settings.freeuS1}
+                              onChange={(e) => setSettings({ freeuS1: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                            <input
+                              type="number"
+                              value={settings.freeuS2}
+                              onChange={(e) => setSettings({ freeuS2: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs text-white/50">ADM Scaler (positive / negative / end)</label>
+                          <div className="grid grid-cols-3 gap-3">
+                            <input
+                              type="number"
+                              value={settings.admScalerPositive}
+                              onChange={(e) => setSettings({ admScalerPositive: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                            <input
+                              type="number"
+                              value={settings.admScalerNegative}
+                              onChange={(e) => setSettings({ admScalerNegative: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                            <input
+                              type="number"
+                              value={settings.admScalerEnd}
+                              onChange={(e) => setSettings({ admScalerEnd: parseFloat(e.target.value) || 0 })}
+                              step="0.01"
+                              className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                              disabled={isProcessing}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -767,7 +1078,7 @@ function App() {
               </div>
             </section>
           </>
-        ) : (
+        ) : activeTab === 'history' ? (
           /* History Tab */
           <section className="col-span-12 space-y-6">
             <div className="glass-card p-6 min-h-[500px]">
@@ -804,6 +1115,87 @@ function App() {
                 <div className="h-64 flex flex-col items-center justify-center text-white/30">
                   <Search className="w-8 h-8 mb-2" />
                   <p>No history found</p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : (
+          <section className="col-span-12 space-y-6">
+            <div className="glass-card p-6 min-h-[500px] space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-white/80">Config Editor</h3>
+                  <p className="text-xs text-white/50">`config_modification_tutorial.txt` のキーを `config.txt` に保存します。</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={configQuery}
+                    onChange={(e) => setConfigQuery(e.target.value)}
+                    placeholder="キー名で検索"
+                    className="bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveConfig}
+                    disabled={configSaving || configLoading}
+                    className="px-4 py-2 text-xs rounded-lg bg-premium-accent/30 hover:bg-premium-accent/40 border border-premium-accent/40 disabled:opacity-50"
+                  >
+                    {configSaving ? '保存中...' : 'Save Config'}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-yellow-300/80">保存後はバックエンド/ワーカー再起動後に反映されます。</p>
+              {configMessage && <p className="text-xs text-white/70">{configMessage}</p>}
+
+              {configLoading ? (
+                <p className="text-sm text-white/50">Loading config schema...</p>
+              ) : (
+                <div className="space-y-3 max-h-[70vh] overflow-auto pr-2">
+                  {displayedConfigFields.map((field) => (
+                    <div key={field.key} className="bg-black/20 border border-white/10 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-white/80 font-mono">{field.key}</label>
+                        <span className="text-[10px] text-white/40">{field.type}</span>
+                      </div>
+
+                      {field.type === 'boolean' ? (
+                        <label className="flex items-center gap-2 text-xs text-white/70">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(configValues[field.key])}
+                            onChange={(e) => updateConfigPrimitive(field.key, e.target.checked)}
+                            className="accent-premium-accent"
+                          />
+                          Enabled
+                        </label>
+                      ) : field.type === 'number' ? (
+                        <input
+                          type="number"
+                          value={Number(configValues[field.key] ?? 0)}
+                          onChange={(e) => updateConfigPrimitive(field.key, parseFloat(e.target.value))}
+                          className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                        />
+                      ) : field.type === 'string' ? (
+                        <input
+                          type="text"
+                          value={String(configValues[field.key] ?? '')}
+                          onChange={(e) => updateConfigPrimitive(field.key, e.target.value)}
+                          className="w-full bg-black/40 border border-white/10 rounded p-2 text-xs outline-none"
+                        />
+                      ) : (
+                        <textarea
+                          value={configJsonDrafts[field.key] ?? JSON.stringify(configValues[field.key] ?? field.default_value, null, 2)}
+                          onChange={(e) => updateConfigJson(field.key, e.target.value)}
+                          className="w-full min-h-24 bg-black/40 border border-white/10 rounded p-2 text-xs font-mono outline-none"
+                        />
+                      )}
+                    </div>
+                  ))}
+                  {displayedConfigFields.length === 0 && (
+                    <p className="text-xs text-white/40">該当キーがありません。</p>
+                  )}
                 </div>
               )}
             </div>

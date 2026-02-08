@@ -14,6 +14,8 @@ export interface SettingsPayload {
     output_formats: string[];
     clip_skip_max: number;
     default_lora_count: number;
+    refiner_swap_methods: string[];
+    metadata_schemes: string[];
 }
 
 function listFilesByExtension(dirPath: string, extension: string): string[] {
@@ -96,5 +98,7 @@ export function loadSettings(rootPath: string): SettingsPayload {
         output_formats: ['png', 'jpg', 'webp'],
         clip_skip_max: 12,
         default_lora_count: 5,
+        refiner_swap_methods: ['joint', 'separate', 'vae'],
+        metadata_schemes: ['fooocus', 'a1111'],
     };
 }

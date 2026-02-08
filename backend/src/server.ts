@@ -12,6 +12,7 @@ import { scheduler } from './scheduler';
 import { workerManager } from './worker-manager';
 import { loadSettings } from './settings-loader';
 import { loadHistory } from './history-loader';
+import { loadConfigEditorPayload, saveConfigFromEditorPayload } from './config-editor';
 
 const rootPath = path.join(__dirname, '../..');
 const outputsPath = path.join(rootPath, 'outputs');
@@ -63,6 +64,10 @@ interface GenerateRequestBody {
     [key: string]: unknown;
 }
 
+interface ConfigUpdateBody {
+    values?: Record<string, unknown>;
+}
+
 const activeTasks = new Map<string, TaskStatus>();
 const generateRequestBodySchema = {
     type: 'object',
@@ -105,6 +110,29 @@ app.get('/gpus', async () => {
             port: gpu.port,
         })),
     };
+});
+
+app.get('/config/editor', async () => {
+    return loadConfigEditorPayload(rootPath);
+});
+
+app.post<{ Body: ConfigUpdateBody }>('/config/editor', async (request, reply) => {
+    try {
+        const values = request.body?.values;
+        if (!values || typeof values !== 'object' || Array.isArray(values)) {
+            return reply.code(400).send({ error: '"values" must be an object' });
+        }
+        const result = saveConfigFromEditorPayload(rootPath, values as Record<string, unknown>);
+        return {
+            success: true,
+            ...result,
+            restart_required: true,
+        };
+    } catch (error) {
+        return reply.code(400).send({
+            error: error instanceof Error ? error.message : 'Failed to update config',
+        });
+    }
 });
 
 app.get<{ Params: { name: string } }>('/presets/:name', async (request, reply) => {

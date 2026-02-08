@@ -29,6 +29,8 @@ export const useApi = () => {
                 outputFormats: data.output_formats || ['png', 'jpeg', 'webp'],
                 clipSkipMax: data.clip_skip_max || 12,
                 defaultLoraCount: data.default_lora_count || 5,
+                refinerSwapMethods: data.refiner_swap_methods || ['joint', 'separate', 'vae'],
+                metadataSchemes: data.metadata_schemes || ['fooocus', 'a1111'],
             });
         } catch (err) {
             console.error('Failed to fetch settings:', err);
@@ -67,6 +69,25 @@ export const useApi = () => {
             if (data.default_refiner_switch !== undefined) newSettings.refinerSwitch = data.default_refiner_switch;
             if (data.default_sampler !== undefined) newSettings.samplerName = data.default_sampler;
             if (data.default_scheduler !== undefined) newSettings.schedulerName = data.default_scheduler;
+            if (data.default_vae !== undefined) newSettings.vaeName = data.default_vae;
+            if (data.default_clip_skip !== undefined) newSettings.clipSkip = data.default_clip_skip;
+            if (data.default_cfg_tsnr !== undefined) newSettings.adaptiveCfg = data.default_cfg_tsnr;
+            if (data.default_overwrite_step !== undefined) newSettings.overwriteStep = data.default_overwrite_step;
+            if (data.default_overwrite_switch !== undefined) newSettings.overwriteSwitch = data.default_overwrite_switch;
+            if (data.default_save_metadata_to_images !== undefined) newSettings.saveMetadataToImages = !!data.default_save_metadata_to_images;
+            if (Array.isArray(data.default_loras)) {
+                const mappedLoras = data.default_loras
+                    .filter((l: unknown): l is [boolean, string, number] =>
+                        Array.isArray(l)
+                        && l.length >= 3
+                        && typeof l[0] === 'boolean'
+                        && typeof l[1] === 'string'
+                        && typeof l[2] === 'number'
+                    )
+                    .map(([enabled, name, weight]: [boolean, string, number]) => ({ enabled, name, weight }))
+                    .filter((lora: { enabled: boolean; name: string; weight: number }) => lora.name !== 'None');
+                newSettings.loras = mappedLoras;
+            }
 
             newSettings.preset = presetName;
 
@@ -106,6 +127,24 @@ export const useApi = () => {
                     vae_name: currentSettings.vaeName,
                     output_format: currentSettings.outputFormat,
                     clip_skip: currentSettings.clipSkip,
+                    adaptive_cfg: currentSettings.adaptiveCfg,
+                    overwrite_step: currentSettings.overwriteStep,
+                    overwrite_switch: currentSettings.overwriteSwitch,
+                    overwrite_width: currentSettings.overwriteWidth,
+                    overwrite_height: currentSettings.overwriteHeight,
+                    disable_seed_increment: currentSettings.disableSeedIncrement,
+                    adm_scaler_positive: currentSettings.admScalerPositive,
+                    adm_scaler_negative: currentSettings.admScalerNegative,
+                    adm_scaler_end: currentSettings.admScalerEnd,
+                    refiner_swap_method: currentSettings.refinerSwapMethod,
+                    controlnet_softness: currentSettings.controlnetSoftness,
+                    freeu_enabled: currentSettings.freeuEnabled,
+                    freeu_b1: currentSettings.freeuB1,
+                    freeu_b2: currentSettings.freeuB2,
+                    freeu_s1: currentSettings.freeuS1,
+                    freeu_s2: currentSettings.freeuS2,
+                    save_metadata_to_images: currentSettings.saveMetadataToImages,
+                    metadata_scheme: currentSettings.metadataScheme,
                     loras: currentSettings.loras.map(l => [l.enabled, l.name, l.weight]),
                 }),
             });
@@ -132,6 +171,30 @@ export const useApi = () => {
         } catch (err) {
             console.error('Failed to fetch history:', err);
             return [];
+        }
+    }, []);
+
+    const fetchConfigEditor = useCallback(async () => {
+        try {
+            const resp = await fetch(`${API_BASE}/config/editor`);
+            return await resp.json();
+        } catch (err) {
+            console.error('Failed to fetch config editor payload:', err);
+            return null;
+        }
+    }, []);
+
+    const updateConfigEditor = useCallback(async (values: Record<string, unknown>) => {
+        try {
+            const resp = await fetch(`${API_BASE}/config/editor`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ values }),
+            });
+            return await resp.json();
+        } catch (err) {
+            console.error('Failed to update config:', err);
+            return { success: false, error: 'Network error' };
         }
     }, []);
 
@@ -175,5 +238,5 @@ export const useApi = () => {
         return () => ws.close();
     }, [updateTask]);
 
-    return { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory };
+    return { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory, fetchConfigEditor, updateConfigEditor };
 };

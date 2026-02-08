@@ -8,6 +8,8 @@ const DEFAULT_UOV_METHOD = 'Disabled';
 const DEFAULT_REFINER_SWAP_METHOD = 'joint';
 const DEFAULT_IP_TYPE = 'ImagePrompt';
 const DEFAULT_METADATA_SCHEME = 'fooocus';
+const DEFAULT_METADATA_SCHEMES = [DEFAULT_METADATA_SCHEME, 'a1111'];
+const DEFAULT_REFINER_SWAP_METHODS = [DEFAULT_REFINER_SWAP_METHOD, 'separate', 'vae'];
 
 const DEFAULT_MAX_LORA_NUMBER = 5;
 const DEFAULT_CONTROLNET_IMAGE_COUNT = 4;
@@ -42,6 +44,13 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
 function normalizeAspectRatio(value: string): string {
     // Python worker expects "W×H" and splits by the multiplication sign.
     return value.replace(/[xX*]/g, '×');
+}
+
+function asEnumString(value: unknown, fallback: string, allowed: string[]): string {
+    if (typeof value === 'string' && allowed.includes(value)) {
+        return value;
+    }
+    return fallback;
 }
 
 function normalizeLoras(value: unknown): Array<[boolean, string, number]> {
@@ -82,6 +91,32 @@ export function buildFooocusTaskArgs(request: GenericRequest): unknown[] {
     const scheduler = asString(request.scheduler_name, 'karras');
     const vae = asString(request.vae_name, 'Default (model)');
     const loras = normalizeLoras(request.loras);
+    const disableSeedIncrement = asBoolean(request.disable_seed_increment, false);
+    const admScalerPositive = asNumber(request.adm_scaler_positive, 1.5);
+    const admScalerNegative = asNumber(request.adm_scaler_negative, 0.8);
+    const admScalerEnd = asNumber(request.adm_scaler_end, 0.3);
+    const adaptiveCfg = asNumber(request.adaptive_cfg, 7.0);
+    const overwriteStep = asNumber(request.overwrite_step, -1);
+    const overwriteSwitch = asNumber(request.overwrite_switch, -1);
+    const overwriteWidth = asNumber(request.overwrite_width, -1);
+    const overwriteHeight = asNumber(request.overwrite_height, -1);
+    const refinerSwapMethod = asEnumString(
+        request.refiner_swap_method,
+        DEFAULT_REFINER_SWAP_METHOD,
+        DEFAULT_REFINER_SWAP_METHODS,
+    );
+    const controlnetSoftness = asNumber(request.controlnet_softness, 0.25);
+    const freeuEnabled = asBoolean(request.freeu_enabled, false);
+    const freeuB1 = asNumber(request.freeu_b1, 1.1);
+    const freeuB2 = asNumber(request.freeu_b2, 1.2);
+    const freeuS1 = asNumber(request.freeu_s1, 0.9);
+    const freeuS2 = asNumber(request.freeu_s2, 0.2);
+    const saveMetadataToImages = asBoolean(request.save_metadata_to_images, false);
+    const metadataScheme = asEnumString(
+        request.metadata_scheme,
+        DEFAULT_METADATA_SCHEME,
+        DEFAULT_METADATA_SCHEMES,
+    );
 
     const args: unknown[] = [
         true,
@@ -120,26 +155,37 @@ export function buildFooocusTaskArgs(request: GenericRequest): unknown[] {
         null,
         false,
         false,
+        disableSeedIncrement,
         false,
-        false,
-        1.5, 0.8, 0.3,
-        7.0,
+        admScalerPositive,
+        admScalerNegative,
+        admScalerEnd,
+        adaptiveCfg,
         clipSkip,
         sampler,
         scheduler,
         vae,
-        -1, -1, -1, -1, -1, -1,
+        overwriteStep,
+        overwriteSwitch,
+        overwriteWidth,
+        overwriteHeight,
+        -1,
+        -1,
         false, false, false, false,
         64, 128,
-        DEFAULT_REFINER_SWAP_METHOD,
-        0.25,
-        false, 1.1, 1.2, 0.9, 0.2,
+        refinerSwapMethod,
+        controlnetSoftness,
+        freeuEnabled,
+        freeuB1,
+        freeuB2,
+        freeuS1,
+        freeuS2,
         false, false,
         'None', 1.0, 0.0,
         false, false, 0,
         false,
-        false,
-        DEFAULT_METADATA_SCHEME,
+        saveMetadataToImages,
+        metadataScheme,
     );
 
     for (let i = 0; i < DEFAULT_CONTROLNET_IMAGE_COUNT; i++) {
