@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { scheduler } from './scheduler';
 import { workerManager } from './worker-manager';
 import { loadSettings } from './settings-loader';
-import { loadHistory } from './history-loader';
+import { loadHistoryPage } from './history-loader';
 import { loadConfigEditorPayload, saveConfigFromEditorPayload } from './config-editor';
 
 const rootPath = path.join(__dirname, '../..');
@@ -70,6 +70,8 @@ interface ConfigUpdateBody {
 
 interface HistoryQuerystring {
     limit?: string;
+    offset?: string;
+    page?: string;
 }
 
 const activeTasks = new Map<string, TaskStatus>();
@@ -341,12 +343,26 @@ app.get<{ Querystring: HistoryQuerystring }>('/history', async (request) => {
     try {
         const parsedLimit = Number.parseInt(request.query?.limit ?? '', 10);
         const limit = Number.isFinite(parsedLimit)
-            ? Math.min(Math.max(parsedLimit, 1), 500)
-            : 200;
-        return loadHistory(outputsPath, limit);
+            ? Math.min(Math.max(parsedLimit, 1), 30)
+            : 20;
+        const parsedPage = Number.parseInt(request.query?.page ?? '', 10);
+        const page = Number.isFinite(parsedPage) ? Math.max(parsedPage, 1) : 1;
+        const parsedOffset = Number.parseInt(request.query?.offset ?? '', 10);
+        const offset = Number.isFinite(parsedOffset)
+            ? Math.max(parsedOffset, 0)
+            : (page - 1) * limit;
+
+        return loadHistoryPage(outputsPath, limit, offset);
     } catch (error) {
         console.error('[History] Error scanning outputs:', error);
-        return [];
+        return {
+            items: [],
+            total: 0,
+            limit: 20,
+            offset: 0,
+            page: 1,
+            total_pages: 0,
+        };
     }
 });
 

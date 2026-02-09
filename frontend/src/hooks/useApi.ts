@@ -8,6 +8,22 @@ const WS_BASE = `ws://${API_HOSTNAME}:8888`;
 
 const normalizeAspectRatio = (value: string) => value.replace(/[xX*]/g, '×');
 
+export interface HistoryItem {
+    filename: string;
+    path: string;
+    created: number;
+    metadata: Record<string, unknown> | null;
+}
+
+export interface HistoryResponse {
+    items: HistoryItem[];
+    total: number;
+    limit: number;
+    offset: number;
+    page: number;
+    total_pages: number;
+}
+
 export const useApi = () => {
     const { setSettings, setOptions, updateTask, settings } = useStore();
 
@@ -165,14 +181,22 @@ export const useApi = () => {
         }
     }, []);
 
-    const fetchHistory = useCallback(async (limit = 200) => {
+    const fetchHistory = useCallback(async (limit = 20, page = 1): Promise<HistoryResponse> => {
         try {
-            const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 200;
-            const resp = await fetch(`${API_BASE}/history?limit=${safeLimit}`);
+            const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, Math.floor(limit)), 30) : 20;
+            const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+            const resp = await fetch(`${API_BASE}/history?limit=${safeLimit}&page=${safePage}`);
             return await resp.json();
         } catch (err) {
             console.error('Failed to fetch history:', err);
-            return [];
+            return {
+                items: [],
+                total: 0,
+                limit: 20,
+                offset: 0,
+                page: 1,
+                total_pages: 0,
+            };
         }
     }, []);
 

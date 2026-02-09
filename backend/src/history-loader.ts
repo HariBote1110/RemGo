@@ -11,6 +11,15 @@ export interface HistoryEntry {
     metadata: JsonObject | null;
 }
 
+export interface HistoryPage {
+    items: HistoryEntry[];
+    total: number;
+    limit: number;
+    offset: number;
+    page: number;
+    total_pages: number;
+}
+
 interface SQLiteRow {
     filename?: unknown;
     metadata?: unknown;
@@ -129,6 +138,35 @@ function collectOutputFiles(outputsPath: string, limit: number): HistoryEntry[] 
         .slice(0, limit);
 }
 
+function countOutputFiles(outputsPath: string): number {
+    if (!fs.existsSync(outputsPath)) {
+        return 0;
+    }
+
+    let total = 0;
+    const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
+    for (const entry of entries) {
+        if (entry.isFile() && isImageFile(entry.name)) {
+            total += 1;
+            continue;
+        }
+
+        if (!entry.isDirectory() || !DATE_DIR_PATTERN.test(entry.name)) {
+            continue;
+        }
+
+        const dateDir = path.join(outputsPath, entry.name);
+        const files = fs.readdirSync(dateDir, { withFileTypes: true });
+        for (const file of files) {
+            if (file.isFile() && isImageFile(file.name)) {
+                total += 1;
+            }
+        }
+    }
+
+    return total;
+}
+
 function shellQuote(value: string): string {
     return `'${value.replace(/'/g, "''")}'`;
 }
@@ -227,15 +265,32 @@ function loadMetadataMapFromSQLite(outputsPath: string, filenames: string[]): Ma
 }
 
 export function loadHistory(outputsPath: string, limit = 500): HistoryEntry[] {
+    return loadHistoryPage(outputsPath, limit, 0).items;
+}
+
+export function loadHistoryPage(outputsPath: string, limit = 20, offset = 0): HistoryPage {
     const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 500;
-    const files = collectOutputFiles(outputsPath, safeLimit)
-        .sort((a, b) => b.created - a.created)
-        .slice(0, safeLimit);
+    const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
+    const scanLimit = safeOffset + safeLimit;
+    const candidates = collectOutputFiles(outputsPath, scanLimit)
+        .sort((a, b) => b.created - a.created);
+    const files = candidates.slice(safeOffset, safeOffset + safeLimit);
 
     const metadataMap = loadMetadataMapFromSQLite(outputsPath, files.map((f) => f.filename));
     for (const entry of files) {
         entry.metadata = metadataMap.get(entry.filename) ?? null;
     }
 
-    return files;
+    const total = countOutputFiles(outputsPath);
+    const page = Math.floor(safeOffset / safeLimit) + 1;
+    const totalPages = total > 0 ? Math.ceil(total / safeLimit) : 0;
+
+    return {
+        items: files,
+        total,
+        limit: safeLimit,
+        offset: safeOffset,
+        page,
+        total_pages: totalPages,
+    };
 }

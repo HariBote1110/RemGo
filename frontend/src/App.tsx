@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
+import type { HistoryItem } from './hooks/useApi';
 import { Sparkles, History, Send, Settings2, ChevronDown, ChevronUp, ImagePlus, Square, Search } from 'lucide-react';
 import JSZip from 'jszip';
 import type { LoraSettings, TaskSettings } from './store/useStore';
 
 const API_HOSTNAME = window.location.hostname;
 const API_BASE = `http://${API_HOSTNAME}:8888`;
-const HISTORY_FETCH_LIMIT = 200;
+const HISTORY_DEFAULT_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE_OPTIONS = [10, 20, 30] as const;
 
 function encodeImagePath(pathValue: string): string {
   return pathValue
@@ -19,6 +21,20 @@ function encodeImagePath(pathValue: string): string {
 function buildHistoryZipFilename(): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   return `remgo-history-${timestamp}.zip`;
+}
+
+function buildPageNumbers(currentPage: number, totalPages: number): number[] {
+  if (totalPages <= 0) {
+    return [];
+  }
+
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, currentPage + 2);
+  const pages: number[] = [];
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page);
+  }
+  return pages;
 }
 
 function parseMaybeNumber(value: unknown): number | null {
@@ -148,9 +164,12 @@ function App() {
   const { fetchSettings, generate, loadPreset, stopGeneration, fetchHistory, fetchConfigEditor, updateConfigEditor } = useApi();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeTab, setActiveTab] = useState<'generate' | 'history' | 'config'>('generate');
-  const [historyImages, setHistoryImages] = useState<any[]>([]);
+  const [historyImages, setHistoryImages] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState<number>(HISTORY_DEFAULT_PAGE_SIZE);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyTotalPages, setHistoryTotalPages] = useState(0);
   const [selectedHistoryPaths, setSelectedHistoryPaths] = useState<string[]>([]);
   const [historyDownloadError, setHistoryDownloadError] = useState('');
   const [historyDownloading, setHistoryDownloading] = useState(false);
@@ -165,22 +184,26 @@ function App() {
   const [configMessage, setConfigMessage] = useState<string>('');
   const [configQuery, setConfigQuery] = useState('');
 
-  const loadHistoryImages = useCallback(async (force = false) => {
-    if (!force && historyLoaded) {
-      return;
-    }
-
+  const loadHistoryImages = useCallback(async (page = historyPage, pageSize = historyPageSize) => {
     setHistoryLoading(true);
     try {
-      const images = await fetchHistory(HISTORY_FETCH_LIMIT);
-      setHistoryImages(Array.isArray(images) ? images : []);
+      const payload = await fetchHistory(pageSize, page);
+      if (payload.total_pages > 0 && payload.page > payload.total_pages) {
+        setHistoryPage(payload.total_pages);
+        return;
+      }
+
+      const images = Array.isArray(payload.items) ? payload.items : [];
+      setHistoryImages(images);
+      setHistoryPage(payload.page || 1);
+      setHistoryTotal(payload.total || 0);
+      setHistoryTotalPages(payload.total_pages || 0);
       setSelectedHistoryPaths([]);
       setHistoryDownloadError('');
-      setHistoryLoaded(true);
     } finally {
       setHistoryLoading(false);
     }
-  }, [fetchHistory, historyLoaded]);
+  }, [fetchHistory, historyPage, historyPageSize]);
 
   const selectedHistoryPathSet = useMemo(() => new Set(selectedHistoryPaths), [selectedHistoryPaths]);
 
@@ -256,10 +279,15 @@ function App() {
   }, [fetchSettings]);
 
   useEffect(() => {
-    if (activeTab === 'history' && !historyLoaded) {
+    if (activeTab === 'history') {
       void loadHistoryImages();
     }
-  }, [activeTab, historyLoaded, loadHistoryImages]);
+  }, [activeTab, historyPage, historyPageSize, loadHistoryImages]);
+
+  const historyPageNumbers = useMemo(
+    () => buildPageNumbers(historyPage, historyTotalPages),
+    [historyPage, historyTotalPages]
+  );
 
   useEffect(() => {
     if (activeTab !== 'config') return;
@@ -1196,12 +1224,28 @@ function App() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => void loadHistoryImages(true)}
+                    onClick={() => void loadHistoryImages(historyPage, historyPageSize)}
                     disabled={historyLoading}
                     className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
                   >
                     {historyLoading ? '履歴を読み込み中...' : '履歴を再読み込み'}
                   </button>
+                  <label className="text-xs text-white/60 flex items-center gap-2">
+                    1ページ件数
+                    <select
+                      value={historyPageSize}
+                      onChange={(event) => {
+                        const nextSize = Number.parseInt(event.target.value, 10);
+                        setHistoryPageSize(Number.isFinite(nextSize) ? nextSize : HISTORY_DEFAULT_PAGE_SIZE);
+                        setHistoryPage(1);
+                      }}
+                      className="bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none"
+                    >
+                      {HISTORY_PAGE_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                  </label>
                   <button
                     type="button"
                     onClick={selectAllHistory}
@@ -1227,7 +1271,7 @@ function App() {
                     {historyDownloading ? 'ZIP作成中...' : `選択分をZIPでDL (${selectedHistoryPaths.length})`}
                   </button>
                 </div>
-                <p className="text-xs text-white/50">選択中: {selectedHistoryPaths.length} 件</p>
+                <p className="text-xs text-white/50">全 {historyTotal} 件 / 選択中 {selectedHistoryPaths.length} 件</p>
                 {historyDownloadError && <p className="text-xs text-red-300">{historyDownloadError}</p>}
               </div>
 
@@ -1272,10 +1316,68 @@ function App() {
                     );
                   })}
                 </div>
+                
               ) : (
                 <div className="h-64 flex flex-col items-center justify-center text-white/30">
                   <Search className="w-8 h-8 mb-2" />
                   <p>No history found</p>
+                </div>
+              )}
+
+              {historyTotalPages > 0 && (
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((previous) => Math.max(1, previous - 1))}
+                    disabled={historyPage <= 1 || historyLoading}
+                    className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50"
+                  >
+                    前へ
+                  </button>
+                  {historyPageNumbers[0] > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryPage(1)}
+                        className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10"
+                      >
+                        1
+                      </button>
+                      {historyPageNumbers[0] > 2 && <span className="text-xs text-white/40 px-1">…</span>}
+                    </>
+                  )}
+                  {historyPageNumbers.map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      onClick={() => setHistoryPage(pageNumber)}
+                      className={`px-3 py-2 text-xs rounded-lg border ${pageNumber === historyPage ? 'bg-premium-accent/30 border-premium-accent/60' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  {historyPageNumbers.length > 0 && historyPageNumbers[historyPageNumbers.length - 1] < historyTotalPages && (
+                    <>
+                      {historyPageNumbers[historyPageNumbers.length - 1] < historyTotalPages - 1 && (
+                        <span className="text-xs text-white/40 px-1">…</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setHistoryPage(historyTotalPages)}
+                        className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10"
+                      >
+                        {historyTotalPages}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((previous) => Math.min(historyTotalPages, previous + 1))}
+                    disabled={historyPage >= historyTotalPages || historyLoading}
+                    className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50"
+                  >
+                    次へ
+                  </button>
                 </div>
               )}
             </div>
