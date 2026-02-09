@@ -1,41 +1,99 @@
+################################################
+#                                              #
+#           RemGo - Easy Launcher              #
+#                                              #
+################################################
+[INFO] Starting unified TypeScript launcher...
 
-> remgo-backend@1.0.0 dev
-> tsx watch src/server.ts
+> remgo-backend@1.0.1 launcher:dev
+> tsx src/launcher.ts
 
-[Scheduler] Loaded 2 GPUs:
-  - Device 0: RTX 3070 Ti (weight: 3, port: 9000)
-  - Device 1: GTX 1650 Super (weight: 1, port: 9001)
-[WorkerManager] Python path: D:\Documents\GitHub\RemGo\venv\Scripts\python.exe
-[Server] Starting RemGo API Server...
-[Server] Multi-GPU mode with 2 GPUs
-[WorkerManager] Starting worker for GPU 0 on port 9000
-[WorkerManager] Worker 0 is ready
-[WorkerManager] Starting worker for GPU 1 on port 9001
-[WorkerManager] Worker 1 is ready
-{"level":30,"time":1770456699473,"pid":28752,"hostname":"mainPC","msg":"Server listening at http://0.0.0.0:8888"}
-[Server] RemGo API Server running on http://0.0.0.0:8888
-{"level":30,"time":1770456709326,"pid":28752,"hostname":"mainPC","reqId":"req-1","req":{"method":"GET","url":"/settings","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62409},"msg":"incoming request"}
-{"level":30,"time":1770456709331,"pid":28752,"hostname":"mainPC","reqId":"req-1","res":{"statusCode":200},"responseTime":4.341100000077859,"msg":"request completed"}
-[WS] Client connected
-{"level":30,"time":1770456709331,"pid":28752,"hostname":"mainPC","reqId":"req-2","req":{"method":"GET","url":"/ws","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62408},"msg":"incoming request"}
-{"level":30,"time":1770456709334,"pid":28752,"hostname":"mainPC","reqId":"req-3","req":{"method":"GET","url":"/settings","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62411},"msg":"incoming request"}
-{"level":30,"time":1770456709335,"pid":28752,"hostname":"mainPC","reqId":"req-3","res":{"statusCode":200},"responseTime":1.345899999840185,"msg":"request completed"}
-[WS] Client connected
-{"level":30,"time":1770456709335,"pid":28752,"hostname":"mainPC","reqId":"req-4","req":{"method":"GET","url":"/ws","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62412},"msg":"incoming request"}
-{"level":30,"time":1770456712604,"pid":28752,"hostname":"mainPC","reqId":"req-5","req":{"method":"OPTIONS","url":"/generate","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62409},"msg":"incoming request"}
-{"level":30,"time":1770456712604,"pid":28752,"hostname":"mainPC","reqId":"req-5","res":{"statusCode":204},"responseTime":0.48060000012628734,"msg":"request completed"}
-{"level":30,"time":1770456712606,"pid":28752,"hostname":"mainPC","reqId":"req-6","req":{"method":"POST","url":"/generate","hostname":"192.168.0.30:8888","remoteAddress":"192.168.0.226","remotePort":62411},"msg":"incoming request"}
-{"level":30,"time":1770456712609,"pid":28752,"hostname":"mainPC","reqId":"req-6","res":{"statusCode":200},"responseTime":2.484900000039488,"msg":"request completed"}
-[Worker 0] Traceback (most recent call last):
-[Worker 0] File "D:\Documents\GitHub\RemGo\modules\async_worker.py", line 1471, in worker
-    handler(task)
-  File "D:\Documents\GitHub\RemGo\venv\Lib\site-packages\torch\utils\_contextlib.py", line 115, in decorate_context
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Documents\GitHub\RemGo\venv\Lib\site-packages\torch\utils\_contextlib.py", line 115, in decorate_context
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Documents\GitHub\RemGo\modules\async_worker.py", line 1075, in handler
-    async_task.outpaint_selections = [o.lower() for o in async_task.outpaint_selections]
-                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: 'NoneType' object is not iterable
+[Launcher] Installing Python dependencies (inference runtime)...
+Requirement already satisfied: pip in .\venv\Lib\site-packages (26.0.1)
+Requirement already satisfied: torchsde==0.2.6 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 1)) (0.2.6)
+Requirement already satisfied: einops==0.8.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 2)) (0.8.0)
+Requirement already satisfied: transformers==4.42.4 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 3)) (4.42.4)
+Requirement already satisfied: safetensors==0.4.3 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 4)) (0.4.3)
+Requirement already satisfied: accelerate==0.32.1 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 5)) (0.32.1)
+Requirement already satisfied: pyyaml==6.0.1 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 6)) (6.0.1)
+Requirement already satisfied: pillow==10.4.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 7)) (10.4.0)
+Requirement already satisfied: scipy==1.14.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 8)) (1.14.0)
+Requirement already satisfied: tqdm==4.66.4 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 9)) (4.66.4)
+Requirement already satisfied: psutil==6.0.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 10)) (6.0.0)
+Requirement already satisfied: pytorch_lightning==2.3.3 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 11)) (2.3.3)
+Requirement already satisfied: omegaconf==2.3.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 12)) (2.3.0)
+Requirement already satisfied: opencv-contrib-python-headless==4.10.0.84 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 13)) (4.10.0.84)
+Requirement already satisfied: onnxruntime==1.18.1 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 14)) (1.18.1)
+Requirement already satisfied: timm==1.0.7 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 15)) (1.0.7)
+Requirement already satisfied: numpy==1.26.4 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 16)) (1.26.4)
+Requirement already satisfied: tokenizers==0.19.1 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 17)) (0.19.1)
+Requirement already satisfied: packaging==24.1 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 18)) (24.1)
+Requirement already satisfied: rembg==2.0.57 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 19)) (2.0.57)
+Requirement already satisfied: groundingdino-py==0.4.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 20)) (0.4.0)
+Requirement already satisfied: segment_anything==1.0 in .\venv\Lib\site-packages (from -r requirements_remgo.txt (line 21)) (1.0)
+Requirement already satisfied: torch>=1.6.0 in .\venv\Lib\site-packages (from torchsde==0.2.6->-r requirements_remgo.txt (line 1)) (2.2.1+cu121)
+Requirement already satisfied: trampoline>=0.1.2 in .\venv\Lib\site-packages (from torchsde==0.2.6->-r requirements_remgo.txt (line 1)) (0.1.2)
+Requirement already satisfied: filelock in .\venv\Lib\site-packages (from transformers==4.42.4->-r requirements_remgo.txt (line 3)) (3.20.0)
+Requirement already satisfied: huggingface-hub<1.0,>=0.23.2 in .\venv\Lib\site-packages (from transformers==4.42.4->-r requirements_remgo.txt (line 3)) (0.36.2)
+Requirement already satisfied: regex!=2019.12.17 in .\venv\Lib\site-packages (from transformers==4.42.4->-r requirements_remgo.txt (line 3)) (2026.1.15)
+Requirement already satisfied: requests in .\venv\Lib\site-packages (from transformers==4.42.4->-r requirements_remgo.txt (line 3)) (2.32.5)
+Requirement already satisfied: colorama in .\venv\Lib\site-packages (from tqdm==4.66.4->-r requirements_remgo.txt (line 9)) (0.4.6)
+Requirement already satisfied: fsspec>=2022.5.0 in .\venv\Lib\site-packages (from fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (2025.12.0)
+Requirement already satisfied: torchmetrics>=0.7.0 in .\venv\Lib\site-packages (from pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (1.8.2)
+Requirement already satisfied: typing-extensions>=4.4.0 in .\venv\Lib\site-packages (from pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (4.15.0)
+Requirement already satisfied: lightning-utilities>=0.10.0 in .\venv\Lib\site-packages (from pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (0.15.2)
+Requirement already satisfied: antlr4-python3-runtime==4.9.* in .\venv\Lib\site-packages (from omegaconf==2.3.0->-r requirements_remgo.txt (line 12)) (4.9.3)
+Requirement already satisfied: coloredlogs in .\venv\Lib\site-packages (from onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (15.0.1)
+Requirement already satisfied: flatbuffers in .\venv\Lib\site-packages (from onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (25.12.19)
+Requirement already satisfied: protobuf in .\venv\Lib\site-packages (from onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (6.33.5)
+Requirement already satisfied: sympy in .\venv\Lib\site-packages (from onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (1.14.0)
+Requirement already satisfied: torchvision in .\venv\Lib\site-packages (from timm==1.0.7->-r requirements_remgo.txt (line 15)) (0.17.1+cu121)
+Requirement already satisfied: jsonschema in .\venv\Lib\site-packages (from rembg==2.0.57->-r requirements_remgo.txt (line 19)) (4.26.0)
+Requirement already satisfied: opencv-python-headless in .\venv\Lib\site-packages (from rembg==2.0.57->-r requirements_remgo.txt (line 19)) (4.11.0.86)
+Requirement already satisfied: pooch in .\venv\Lib\site-packages (from rembg==2.0.57->-r requirements_remgo.txt (line 19)) (1.9.0)
+Requirement already satisfied: pymatting in .\venv\Lib\site-packages (from rembg==2.0.57->-r requirements_remgo.txt (line 19)) (1.1.15)
+Requirement already satisfied: scikit-image in .\venv\Lib\site-packages (from rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.26.0)
+Requirement already satisfied: addict in .\venv\Lib\site-packages (from groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (2.4.0)
+Requirement already satisfied: yapf in .\venv\Lib\site-packages (from groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (0.43.0)
+Requirement already satisfied: opencv-python in .\venv\Lib\site-packages (from groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (4.11.0.86)
+Requirement already satisfied: supervision==0.6.0 in .\venv\Lib\site-packages (from groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (0.6.0)
+Requirement already satisfied: pycocotools in .\venv\Lib\site-packages (from groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (2.0.11)
+Requirement already satisfied: matplotlib in .\venv\Lib\site-packages (from supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (3.10.8)
+Requirement already satisfied: aiohttp!=4.0.0a0,!=4.0.0a1 in .\venv\Lib\site-packages (from fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (3.13.3)
+Requirement already satisfied: aiohappyeyeballs>=2.5.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (2.6.1)
+Requirement already satisfied: aiosignal>=1.4.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (1.4.0)
+Requirement already satisfied: attrs>=17.3.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (25.4.0)
+Requirement already satisfied: frozenlist>=1.1.1 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (1.8.0)
+Requirement already satisfied: multidict<7.0,>=4.5 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (6.7.1)
+Requirement already satisfied: propcache>=0.2.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (0.4.1)
+Requirement already satisfied: yarl<2.0,>=1.17.0 in .\venv\Lib\site-packages (from aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (1.22.0)
+Requirement already satisfied: idna>=2.0 in .\venv\Lib\site-packages (from yarl<2.0,>=1.17.0->aiohttp!=4.0.0a0,!=4.0.0a1->fsspec[http]>=2022.5.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (3.11)
+Requirement already satisfied: setuptools in .\venv\Lib\site-packages (from lightning-utilities>=0.10.0->pytorch_lightning==2.3.3->-r requirements_remgo.txt (line 11)) (80.10.2)
+Requirement already satisfied: networkx in .\venv\Lib\site-packages (from torch>=1.6.0->torchsde==0.2.6->-r requirements_remgo.txt (line 1)) (3.6.1)
+Requirement already satisfied: jinja2 in .\venv\Lib\site-packages (from torch>=1.6.0->torchsde==0.2.6->-r requirements_remgo.txt (line 1)) (3.1.6)
+Requirement already satisfied: humanfriendly>=9.1 in .\venv\Lib\site-packages (from coloredlogs->onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (10.0)
+Requirement already satisfied: pyreadline3 in .\venv\Lib\site-packages (from humanfriendly>=9.1->coloredlogs->onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (3.5.4)
+Requirement already satisfied: MarkupSafe>=2.0 in .\venv\Lib\site-packages (from jinja2->torch>=1.6.0->torchsde==0.2.6->-r requirements_remgo.txt (line 1)) (2.1.5)
+Requirement already satisfied: jsonschema-specifications>=2023.03.6 in .\venv\Lib\site-packages (from jsonschema->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (2025.9.1)
+Requirement already satisfied: referencing>=0.28.4 in .\venv\Lib\site-packages (from jsonschema->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.37.0)
+Requirement already satisfied: rpds-py>=0.25.0 in .\venv\Lib\site-packages (from jsonschema->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.30.0)
+Requirement already satisfied: contourpy>=1.0.1 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (4.61.1)
+Requirement already satisfied: kiwisolver>=1.3.1 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (1.4.9)
+Requirement already satisfied: pyparsing>=3 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (3.3.2)
+Requirement already satisfied: python-dateutil>=2.7 in .\venv\Lib\site-packages (from matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (2.9.0.post0)
+Requirement already satisfied: six>=1.5 in .\venv\Lib\site-packages (from python-dateutil>=2.7->matplotlib->supervision==0.6.0->groundingdino-py==0.4.0->-r requirements_remgo.txt (line 20)) (1.17.0)
+Requirement already satisfied: platformdirs>=2.5.0 in .\venv\Lib\site-packages (from pooch->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (4.5.1)
+Requirement already satisfied: charset_normalizer<4,>=2 in .\venv\Lib\site-packages (from requests->transformers==4.42.4->-r requirements_remgo.txt (line 3)) (3.4.4)
+Requirement already satisfied: urllib3<3,>=1.21.1 in .\venv\Lib\site-packages (from requests->transformers==4.42.4->-r requirements_remgo.txt (line 3)) (2.6.3)
+Requirement already satisfied: certifi>=2017.4.17 in .\venv\Lib\site-packages (from requests->transformers==4.42.4->-r requirements_remgo.txt (line 3)) (2026.1.4)
+Requirement already satisfied: numba>=0.60.0 in .\venv\Lib\site-packages (from pymatting->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.63.1)
+Requirement already satisfied: llvmlite<0.47,>=0.46.0dev0 in .\venv\Lib\site-packages (from numba>=0.60.0->pymatting->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.46.0)
+Requirement already satisfied: imageio!=2.35.0,>=2.33 in .\venv\Lib\site-packages (from scikit-image->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (2.37.2)
+Requirement already satisfied: tifffile>=2022.8.12 in .\venv\Lib\site-packages (from scikit-image->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (2026.1.28)
+Requirement already satisfied: lazy-loader>=0.4 in .\venv\Lib\site-packages (from scikit-image->rembg==2.0.57->-r requirements_remgo.txt (line 19)) (0.4)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in .\venv\Lib\site-packages (from sympy->onnxruntime==1.18.1->-r requirements_remgo.txt (line 14)) (1.3.0)
+[Launcher] Starting backend (Node/TS)...
+[Launcher] Failed: Backend did not become ready on http://127.0.0.1:8888/health
+続行するには何かキーを押してください . . .
