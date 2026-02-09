@@ -2,11 +2,24 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
 import { Sparkles, History, Send, Settings2, ChevronDown, ChevronUp, ImagePlus, Square, Search } from 'lucide-react';
+import JSZip from 'jszip';
 import type { LoraSettings, TaskSettings } from './store/useStore';
 
 const API_HOSTNAME = window.location.hostname;
 const API_BASE = `http://${API_HOSTNAME}:8888`;
 const HISTORY_FETCH_LIMIT = 200;
+
+function encodeImagePath(pathValue: string): string {
+  return pathValue
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function buildHistoryZipFilename(): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `remgo-history-${timestamp}.zip`;
+}
 
 function parseMaybeNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -138,6 +151,9 @@ function App() {
   const [historyImages, setHistoryImages] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [selectedHistoryPaths, setSelectedHistoryPaths] = useState<string[]>([]);
+  const [historyDownloadError, setHistoryDownloadError] = useState('');
+  const [historyDownloading, setHistoryDownloading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ url: string; path: string } | null>(null);
   const [imageMetadata, setImageMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
@@ -158,11 +174,82 @@ function App() {
     try {
       const images = await fetchHistory(HISTORY_FETCH_LIMIT);
       setHistoryImages(Array.isArray(images) ? images : []);
+      setSelectedHistoryPaths([]);
+      setHistoryDownloadError('');
       setHistoryLoaded(true);
     } finally {
       setHistoryLoading(false);
     }
   }, [fetchHistory, historyLoaded]);
+
+  const selectedHistoryPathSet = useMemo(() => new Set(selectedHistoryPaths), [selectedHistoryPaths]);
+
+  const toggleHistorySelection = useCallback((pathValue: string) => {
+    setSelectedHistoryPaths((previous) =>
+      previous.includes(pathValue)
+        ? previous.filter((value) => value !== pathValue)
+        : [...previous, pathValue]
+    );
+  }, []);
+
+  const selectAllHistory = useCallback(() => {
+    const allPaths = historyImages
+      .map((img) => (typeof img?.path === 'string' ? img.path : ''))
+      .filter((value) => value !== '');
+    setSelectedHistoryPaths(allPaths);
+    setHistoryDownloadError('');
+  }, [historyImages]);
+
+  const clearHistorySelection = useCallback(() => {
+    setSelectedHistoryPaths([]);
+    setHistoryDownloadError('');
+  }, []);
+
+  const downloadSelectedHistory = useCallback(async () => {
+    if (selectedHistoryPaths.length === 0 || historyDownloading) {
+      return;
+    }
+
+    const selectedSet = new Set(selectedHistoryPaths);
+    const selectedImages = historyImages.filter((img) => selectedSet.has(img.path));
+    if (selectedImages.length === 0) {
+      setHistoryDownloadError('選択した画像が見つかりませんでした。');
+      return;
+    }
+
+    setHistoryDownloading(true);
+    setHistoryDownloadError('');
+
+    try {
+      const zip = new JSZip();
+
+      for (const img of selectedImages) {
+        const relativePath = String(img.path);
+        const encodedPath = encodeImagePath(relativePath);
+        const resp = await fetch(`${API_BASE}/images/${encodedPath}`);
+        if (!resp.ok) {
+          throw new Error(`ダウンロード失敗: ${relativePath}`);
+        }
+        const blob = await resp.blob();
+        zip.file(relativePath, blob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = buildHistoryZipFilename();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Failed to download selected history:', error);
+      setHistoryDownloadError('選択画像のZIP作成に失敗しました。');
+    } finally {
+      setHistoryDownloading(false);
+    }
+  }, [historyDownloading, historyImages, selectedHistoryPaths]);
 
   useEffect(() => {
     fetchSettings();
@@ -1105,15 +1192,43 @@ function App() {
                 Generation History
               </h3>
 
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => void loadHistoryImages(true)}
-                  disabled={historyLoading}
-                  className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
-                >
-                  {historyLoading ? '履歴を読み込み中...' : '履歴を再読み込み'}
-                </button>
+              <div className="mb-4 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadHistoryImages(true)}
+                    disabled={historyLoading}
+                    className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {historyLoading ? '履歴を読み込み中...' : '履歴を再読み込み'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectAllHistory}
+                    disabled={historyLoading || historyImages.length === 0}
+                    className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
+                  >
+                    全選択
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearHistorySelection}
+                    disabled={selectedHistoryPaths.length === 0}
+                    className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
+                  >
+                    選択解除
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadSelectedHistory()}
+                    disabled={selectedHistoryPaths.length === 0 || historyDownloading || historyLoading}
+                    className="px-3 py-2 text-xs rounded-lg bg-premium-accent/20 border border-premium-accent/50 hover:bg-premium-accent/30 disabled:opacity-60"
+                  >
+                    {historyDownloading ? 'ZIP作成中...' : `選択分をZIPでDL (${selectedHistoryPaths.length})`}
+                  </button>
+                </div>
+                <p className="text-xs text-white/50">選択中: {selectedHistoryPaths.length} 件</p>
+                {historyDownloadError && <p className="text-xs text-red-300">{historyDownloadError}</p>}
               </div>
 
               {historyLoading ? (
@@ -1122,16 +1237,28 @@ function App() {
                 </div>
               ) : historyImages.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {historyImages.map((img) => (
-                    <div
-                      key={img.path}
-                      className="group relative aspect-square bg-white/5 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-premium-accent transition-all"
-                      onClick={() => {
-                        setSelectedImage({ url: `${API_BASE}/images/${img.path}`, path: img.path });
-                        setImageMetadata(img.metadata);
-                        setLoadingMetadata(false);
-                      }}
-                    >
+                  {historyImages.map((img) => {
+                    const isSelected = selectedHistoryPathSet.has(img.path);
+                    return (
+                      <div
+                        key={img.path}
+                        className={`group relative aspect-square bg-white/5 rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-premium-accent transition-all ${isSelected ? 'ring-2 ring-premium-accent' : ''}`}
+                        onClick={() => {
+                          setSelectedImage({ url: `${API_BASE}/images/${img.path}`, path: img.path });
+                          setImageMetadata(img.metadata);
+                          setLoadingMetadata(false);
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleHistorySelection(img.path);
+                          }}
+                          className={`absolute top-2 left-2 z-10 h-6 w-6 rounded-md border text-xs font-bold transition-colors ${isSelected ? 'bg-premium-accent text-white border-premium-accent' : 'bg-black/60 text-white/80 border-white/30 hover:bg-black/80'}`}
+                        >
+                          {isSelected ? '✓' : ''}
+                        </button>
                       <img
                         src={`${API_BASE}/images/${img.path}`}
                         loading="lazy"
@@ -1141,8 +1268,9 @@ function App() {
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <p className="text-[10px] text-white/70 truncate">{new Date(img.created * 1000).toLocaleString()}</p>
                       </div>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-64 flex flex-col items-center justify-center text-white/30">
