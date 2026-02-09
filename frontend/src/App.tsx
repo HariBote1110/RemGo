@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from './store/useStore';
 import { useApi } from './hooks/useApi';
 import { Sparkles, History, Send, Settings2, ChevronDown, ChevronUp, ImagePlus, Square, Search } from 'lucide-react';
@@ -6,6 +6,7 @@ import type { LoraSettings, TaskSettings } from './store/useStore';
 
 const API_HOSTNAME = window.location.hostname;
 const API_BASE = `http://${API_HOSTNAME}:8888`;
+const HISTORY_FETCH_LIMIT = 200;
 
 function parseMaybeNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -135,6 +136,8 @@ function App() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeTab, setActiveTab] = useState<'generate' | 'history' | 'config'>('generate');
   const [historyImages, setHistoryImages] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ url: string; path: string } | null>(null);
   const [imageMetadata, setImageMetadata] = useState<any>(null);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
@@ -146,15 +149,30 @@ function App() {
   const [configMessage, setConfigMessage] = useState<string>('');
   const [configQuery, setConfigQuery] = useState('');
 
+  const loadHistoryImages = useCallback(async (force = false) => {
+    if (!force && historyLoaded) {
+      return;
+    }
+
+    setHistoryLoading(true);
+    try {
+      const images = await fetchHistory(HISTORY_FETCH_LIMIT);
+      setHistoryImages(Array.isArray(images) ? images : []);
+      setHistoryLoaded(true);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [fetchHistory, historyLoaded]);
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
   useEffect(() => {
-    if (activeTab === 'history') {
-      fetchHistory().then(setHistoryImages);
+    if (activeTab === 'history' && !historyLoaded) {
+      void loadHistoryImages();
     }
-  }, [activeTab, fetchHistory]);
+  }, [activeTab, historyLoaded, loadHistoryImages]);
 
   useEffect(() => {
     if (activeTab !== 'config') return;
@@ -1087,7 +1105,22 @@ function App() {
                 Generation History
               </h3>
 
-              {historyImages.length > 0 ? (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => void loadHistoryImages(true)}
+                  disabled={historyLoading}
+                  className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-60"
+                >
+                  {historyLoading ? '履歴を読み込み中...' : '履歴を再読み込み'}
+                </button>
+              </div>
+
+              {historyLoading ? (
+                <div className="h-64 flex flex-col items-center justify-center text-white/40">
+                  <p>履歴を読み込み中...</p>
+                </div>
+              ) : historyImages.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {historyImages.map((img) => (
                     <div

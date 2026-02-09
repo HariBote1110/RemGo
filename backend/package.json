@@ -1,6 +1,6 @@
 {
     "name": "remgo-backend",
-    "version": "1.0.1",
+    "version": "1.0.1-Beta-1a",
     "description": "RemGo API Server - Fastify + TypeScript",
     "main": "dist/server.js",
     "scripts": {

@@ -165,9 +165,10 @@ export const useApi = () => {
         }
     }, []);
 
-    const fetchHistory = useCallback(async () => {
+    const fetchHistory = useCallback(async (limit = 200) => {
         try {
-            const resp = await fetch(`${API_BASE}/history`);
+            const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 200;
+            const resp = await fetch(`${API_BASE}/history?limit=${safeLimit}`);
             return await resp.json();
         } catch (err) {
             console.error('Failed to fetch history:', err);

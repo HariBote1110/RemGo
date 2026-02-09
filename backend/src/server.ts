@@ -68,6 +68,10 @@ interface ConfigUpdateBody {
     values?: Record<string, unknown>;
 }
 
+interface HistoryQuerystring {
+    limit?: string;
+}
+
 const activeTasks = new Map<string, TaskStatus>();
 const generateRequestBodySchema = {
     type: 'object',
@@ -333,9 +337,13 @@ app.get<{ Params: { taskId: string } }>('/status/:taskId', async (request) => {
     return status;
 });
 
-app.get('/history', async () => {
+app.get<{ Querystring: HistoryQuerystring }>('/history', async (request) => {
     try {
-        return loadHistory(outputsPath, 500);
+        const parsedLimit = Number.parseInt(request.query?.limit ?? '', 10);
+        const limit = Number.isFinite(parsedLimit)
+            ? Math.min(Math.max(parsedLimit, 1), 500)
+            : 200;
+        return loadHistory(outputsPath, limit);
     } catch (error) {
         console.error('[History] Error scanning outputs:', error);
         return [];

@@ -16,55 +16,117 @@ interface SQLiteRow {
     metadata?: unknown;
 }
 
+const DATE_DIR_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const FILE_DATETIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})/;
+
 function isImageFile(name: string): boolean {
     return name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp');
 }
 
-function collectOutputFiles(outputsPath: string): HistoryEntry[] {
-    if (!fs.existsSync(outputsPath)) {
-        return [];
+function parseTimestampFromFilename(filename: string): number | null {
+    const match = filename.match(FILE_DATETIME_PATTERN);
+    if (!match) {
+        return null;
     }
 
-    const history: HistoryEntry[] = [];
-    const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    const second = Number(match[6]);
 
+    const dt = new Date(year, month - 1, day, hour, minute, second);
+    if (
+        dt.getFullYear() !== year ||
+        dt.getMonth() !== month - 1 ||
+        dt.getDate() !== day ||
+        dt.getHours() !== hour ||
+        dt.getMinutes() !== minute ||
+        dt.getSeconds() !== second
+    ) {
+        return null;
+    }
+
+    return dt.getTime() / 1000;
+}
+
+function readCreatedAt(filePath: string, filename: string): number {
+    const parsed = parseTimestampFromFilename(filename);
+    if (parsed !== null) {
+        return parsed;
+    }
+    return fs.statSync(filePath).mtimeMs / 1000;
+}
+
+function collectRootFiles(outputsPath: string, entries: fs.Dirent[], limit: number): HistoryEntry[] {
+    const history: HistoryEntry[] = [];
     for (const entry of entries) {
-        if (entry.isFile() && isImageFile(entry.name)) {
-            const filePath = path.join(outputsPath, entry.name);
-            const stats = fs.statSync(filePath);
-            history.push({
-                filename: entry.name,
-                path: entry.name,
-                created: stats.mtimeMs / 1000,
-                metadata: null,
-            });
+        if (!entry.isFile() || !isImageFile(entry.name)) {
             continue;
         }
 
-        // Keep compatibility with date-based folder layout like outputs/2026-02-07/*.png.
-        if (entry.isDirectory() && /^\d{4}-\d{2}-\d{2}$/.test(entry.name)) {
-            const dateDir = path.join(outputsPath, entry.name);
-            const files = fs.readdirSync(dateDir, { withFileTypes: true });
+        const filePath = path.join(outputsPath, entry.name);
+        history.push({
+            filename: entry.name,
+            path: entry.name,
+            created: readCreatedAt(filePath, entry.name),
+            metadata: null,
+        });
+    }
 
-            for (const file of files) {
-                if (!file.isFile() || !isImageFile(file.name)) {
-                    continue;
-                }
+    return history
+        .sort((a, b) => b.created - a.created)
+        .slice(0, limit);
+}
 
-                const relPath = `${entry.name}/${file.name}`;
-                const filePath = path.join(dateDir, file.name);
-                const stats = fs.statSync(filePath);
-                history.push({
-                    filename: file.name,
-                    path: relPath,
-                    created: stats.mtimeMs / 1000,
-                    metadata: null,
-                });
+function collectDateDirectoryFiles(outputsPath: string, entries: fs.Dirent[], limit: number): HistoryEntry[] {
+    const history: HistoryEntry[] = [];
+    const dateDirs = entries
+        .filter((entry) => entry.isDirectory() && DATE_DIR_PATTERN.test(entry.name))
+        .sort((a, b) => b.name.localeCompare(a.name));
+
+    for (const dirEntry of dateDirs) {
+        if (history.length >= limit) {
+            break;
+        }
+
+        const dateDir = path.join(outputsPath, dirEntry.name);
+        const files = fs.readdirSync(dateDir, { withFileTypes: true })
+            .filter((file) => file.isFile() && isImageFile(file.name))
+            .sort((a, b) => b.name.localeCompare(a.name));
+
+        for (const file of files) {
+            if (history.length >= limit) {
+                break;
             }
+
+            const relPath = `${dirEntry.name}/${file.name}`;
+            const filePath = path.join(dateDir, file.name);
+            history.push({
+                filename: file.name,
+                path: relPath,
+                created: readCreatedAt(filePath, file.name),
+                metadata: null,
+            });
         }
     }
 
     return history;
+}
+
+function collectOutputFiles(outputsPath: string, limit: number): HistoryEntry[] {
+    if (!fs.existsSync(outputsPath) || limit <= 0) {
+        return [];
+    }
+
+    const entries = fs.readdirSync(outputsPath, { withFileTypes: true });
+    const rootFiles = collectRootFiles(outputsPath, entries, limit);
+    const dateFiles = collectDateDirectoryFiles(outputsPath, entries, limit);
+
+    return [...rootFiles, ...dateFiles]
+        .sort((a, b) => b.created - a.created)
+        .slice(0, limit);
 }
 
 function shellQuote(value: string): string {
@@ -165,9 +227,10 @@ function loadMetadataMapFromSQLite(outputsPath: string, filenames: string[]): Ma
 }
 
 export function loadHistory(outputsPath: string, limit = 500): HistoryEntry[] {
-    const files = collectOutputFiles(outputsPath)
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 500;
+    const files = collectOutputFiles(outputsPath, safeLimit)
         .sort((a, b) => b.created - a.created)
-        .slice(0, limit);
+        .slice(0, safeLimit);
 
     const metadataMap = loadMetadataMapFromSQLite(outputsPath, files.map((f) => f.filename));
     for (const entry of files) {
